@@ -3,6 +3,13 @@
 // and the extraction jingle. Everything is best-effort: if the browser has no AudioContext
 // (or it stays suspended), the game simply plays silent.
 
+/** Every named sound cue the game can play (the methods on the object createAudio returns). */
+export const SOUND_CUES = [
+  'lootGrab', 'coinToss', 'coinLand', 'cameraSpot', 'laserTrip', 'guardAlert',
+  'caught', 'extracted', 'doorTick', 'vaultTumbler', 'vaultFail', 'vaultOpen',
+  'empPulse', 'smokePop', 'ventSlip', 'setAlarmLevel',
+];
+
 export function createAudio() {
   let context = null;
   let muted = false;

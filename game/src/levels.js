@@ -47,6 +47,7 @@ function border() {
 const groundFloor = {
   name: 'FLOOR 1 · MERIDIAN TRUST — GROUND FLOOR',
   subtitle: 'Floor 1 · lobby, gallery, vault and records office',
+  banner: { text: 'MERIDIAN TRUST', x: 212, y: 255 },
   spawn: { x: 110, y: 630 },
   extract: { x: 36, y: 592, w: 150, h: 92 }, // the getaway van idling by the rear door
   rooms: [
@@ -136,6 +137,7 @@ const groundFloor = {
 const vaultAnnex = {
   name: 'FLOOR 2 · VAULT ANNEX — BASEMENT',
   subtitle: 'Floor 2 · a ring corridor around the sealed vault core',
+  banner: { text: 'VAULT ANNEX', x: 640, y: 130 },
   spawn: { x: 110, y: 630 },
   extract: { x: 36, y: 592, w: 150, h: 92 },
   rooms: [
@@ -155,6 +157,10 @@ const vaultAnnex = {
     { kind: 'case', x: 800, y: 452 },
     { kind: 'case', x: 480, y: 268 },
     { kind: 'case', x: 800, y: 268 },
+    { kind: 'case', x: 840, y: 620 },
+    { kind: 'statue', x: 200, y: 620 },
+    { kind: 'case', x: 440, y: 110 },
+    { kind: 'security', x: 840, y: 110 },
   ],
   // The vault core is sealed by TWO vault doors (north + south). Crack either one to get
   // in at the gold bars and the star artifact; the other stays locked until cracked too.
@@ -227,6 +233,7 @@ const vaultAnnex = {
 const skyVault = {
   name: 'FLOOR 3 · MERIDIAN SKY VAULT — PENTHOUSE',
   subtitle: 'Floor 3 · server lanes around the sealed data core',
+  banner: { text: 'SKY VAULT', x: 640, y: 190 },
   spawn: { x: 110, y: 630 },
   extract: { x: 36, y: 592, w: 150, h: 92 },
   rooms: [

@@ -46,7 +46,7 @@ function stageCover(world) {
   world.openVault(0); // the vault door was cracked earlier: the gold below is already his
   world.giveLoot('cash'); // teller register already in the bag
   world.giveLoot('gold'); // vault bars too: weight 4, the HEAVY tag shows
-  world.placePlayer(610, 245, 0); // on the gallery rug, heading right toward the gem case
+  world.placePlayer(680, 235, 0); // east of the smoke, mid-crossing toward the vault door
   world.setGuard(1, 480, 385, Math.PI, 0.0, 'patrol'); // gallery guard, cone pointing left
   world.state.guards[1].wpIndex = 3; // waypoint at his feet: he scans in place, never walks at the thief
   world.setGuard(0, 210, 300, Math.PI / 2, 0.0, 'patrol'); // lobby guard mid-patrol
@@ -58,17 +58,26 @@ function stageCover(world) {
   aimCamera(world, 3, 0.85); // office camera sweeping down-left
   run(world, 2); // the gallery guard settles at his waypoint and starts scanning
   // He scans toward the crossing — where the thief's smoke bomb is about to hang.
-  world.state.guards[1].scanBase = -0.81;
+  world.state.guards[1].scanBase = -0.76;
   world.state.guards[1].lookTimer = 99;
   run(world, 12, MOVE_EAST); // mid-stride crossing, boots swinging
   tossCoin(world, 465, 365); // first coin: lands at the gallery guard's feet, far from the thief
   run(world, 30); // coin lands, guard turns to investigate ("?" up)
-  // A smoke bomb spent covering the crossing: the thief crosses inside his own cloud
-  // while the guard's cone stops dead at its edge (SMOKE ×1 in the HUD).
+  // A smoke bomb spent covering the crossing: the cloud hangs between the guard and
+  // the thief, his cone stops dead at its edge, and the thief — already clear of it —
+  // keeps crossing (SMOKE ×1 in the HUD, SMOKE! over the cloud).
   world.setTools(2, 1);
-  world.dropSmoke(580, 280, 5);
+  world.dropSmoke(575, 295, 5);
+  world.state.floaters.push({ x: 575, y: 248, text: 'SMOKE!', color: '#cfe4f7', life: 1.4 });
   tossCoin(world, 770, 175); // second coin: caught mid-arc in the frame
-  run(world, 12);
+  run(world, 11);
+  // Re-aim the gallery camera off the thief and settle the alarm back to the staged
+  // SUSPICIOUS band (the sweep may have brushed him mid-staging): the cover thief
+  // reads as crossing, not caught.
+  aimCamera(world, 1, -0.9);
+  world.setAlarm(45);
+  world.state.floaters = world.state.floaters.filter((f) => f.text === 'SMOKE!');
+  run(world, 1);
   return { screen: SCREEN_PLAY, best: 6500, rating: null };
 }
 

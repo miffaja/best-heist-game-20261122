@@ -216,8 +216,8 @@ export function drawMinimap(ctx, state) {
 }
 
 export function drawPanel(ctx, title, titleColor, lines, prompt) {
-  const width = 640;
-  const height = 120 + lines.length * 30 + 56;
+  const width = 560;
+  const height = 104 + lines.length * 27 + 48;
   const x = (FIELD.width - width) / 2;
   const y = (FIELD.height - height) / 2;
   ctx.fillStyle = PALETTE.panel;
@@ -226,9 +226,9 @@ export function drawPanel(ctx, title, titleColor, lines, prompt) {
   ctx.lineWidth = 2;
   ctx.strokeRect(x + 1, y + 1, width - 2, height - 2);
   ctx.textBaseline = 'top';
-  text(ctx, title, FIELD.width / 2, y + 24, 40, titleColor, 'center', true);
+  text(ctx, title, FIELD.width / 2, y + 20, 34, titleColor, 'center', true);
   lines.forEach((line, i) => {
-    text(ctx, line, FIELD.width / 2, y + 92 + i * 30, 18, PALETTE.text, 'center');
+    text(ctx, line, FIELD.width / 2, y + 78 + i * 27, 16, PALETTE.text, 'center');
   });
-  text(ctx, prompt, FIELD.width / 2, y + height - 44, 17, PALETTE.playerTrim, 'center', true);
+  text(ctx, prompt, FIELD.width / 2, y + height - 38, 15, PALETTE.playerTrim, 'center', true);
 }

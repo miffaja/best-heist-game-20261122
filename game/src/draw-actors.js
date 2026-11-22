@@ -184,14 +184,16 @@ export function drawCameraLabels(ctx, state) {
     const hx = camera.x + Math.cos(camera.baseAngle) * 20;
     const hy = camera.y + Math.sin(camera.baseAngle) * 20;
     let lx = hx + Math.cos(camera.baseAngle) * 58;
-    const ly = hy + Math.sin(camera.baseAngle) * 58;
+    let ly = hy + Math.sin(camera.baseAngle) * 58;
     for (const item of state.loot) {
       if (!item.taken && Math.abs(item.x - lx) < 52 && Math.abs(item.y + 28 - ly) < 26) lx += 84;
     }
+    // Keep pills clear of the HUD gadget chips (top-left, y 96–122).
+    if (ly > 84 && ly < 134 && lx < 348) ly = 142;
     ctx.textBaseline = 'middle';
-    ctx.font = `700 12px ${FONT}`;
+    ctx.font = `700 ${camera.jammed ? 13 : 12}px ${FONT}`;
     const pillText = camera.jammed ? 'JAMMED' : 'CAMERA';
-    const labelW = ctx.measureText(pillText).width + 14;
+    const labelW = ctx.measureText(pillText).width + (camera.jammed ? 18 : 14);
     ctx.fillStyle = camera.jammed ? 'rgba(58,38,84,0.92)' : camera.seeing ? 'rgba(90,20,28,0.9)' : 'rgba(11,14,20,0.85)';
     ctx.fillRect(lx - labelW / 2, ly - 10, labelW, 20);
     ctx.strokeStyle = camera.jammed ? PALETTE.emp : camera.seeing ? '#ff4d5e' : '#6eb4ff';
@@ -320,7 +322,8 @@ export function drawPlayer(ctx, state) {
     text(ctx, '▼ CROUCH', p.x, crouchY + 1, 11, '#cfe4f7', 'center', true);
   }
   // Grab / extraction progress: a fat ring plus a named label, readable in a still frame.
-  const progress = Math.max(p.grabProgress, p.extractProgress);
+  // (Hidden once the run has ended — the report panel owns that moment.)
+  const progress = state.caught || state.extracted ? 0 : Math.max(p.grabProgress, p.extractProgress);
   if (progress > 0) {
     const extracting = p.extractProgress > 0;
     ctx.strokeStyle = 'rgba(0,0,0,0.65)';

@@ -150,6 +150,22 @@ export function drawFloors(ctx, state) {
     ctx.fillRect(80, 180, 250, 150);
     ctx.strokeStyle = 'rgba(159,180,200,0.35)';
     ctx.strokeRect(86, 186, 238, 138);
+    // Woven diamond pattern so the lobby rug reads as a rug, not a blue slab.
+    ctx.fillStyle = 'rgba(207,228,247,0.10)';
+    for (let ry = 200; ry < 322; ry += 24) {
+      for (let rx = 102; rx < 322; rx += 24) {
+        ctx.beginPath();
+        ctx.moveTo(rx, ry - 6);
+        ctx.lineTo(rx + 6, ry);
+        ctx.lineTo(rx, ry + 6);
+        ctx.lineTo(rx - 6, ry);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    ctx.strokeStyle = 'rgba(232,178,58,0.30)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(98, 198, 214, 114);
   } else {
     ctx.fillStyle = 'rgba(122,46,58,0.4)';
     ctx.fillRect(470, 252, 340, 216);
@@ -158,6 +174,13 @@ export function drawFloors(ctx, state) {
     ctx.strokeRect(478, 260, 324, 200);
   }
   // (The vault doors themselves are drawn by drawVaultDoors, at their real blockers.)
+  // The floor's name painted big on its open floor — each floor announces itself, so
+  // a shrunken frame still says which of the three floors this is.
+  if (state.level.banner) {
+    ctx.globalAlpha = 0.10;
+    text(ctx, state.level.banner.text, state.level.banner.x, state.level.banner.y, 46, '#cfe4f7', 'center', true);
+    ctx.globalAlpha = 1;
+  }
   // Room nameplates, faint so they read as floor markings. Top rooms step below the
   // HUD band so GALLERY / VAULT are never clipped by the alarm meter or haul box.
   for (const room of state.level.rooms) {
@@ -425,9 +448,18 @@ export function drawProps(ctx, state) {
         ctx.stroke();
         for (let led = 0; led < 3; led += 1) {
           const on = Math.floor(state.elapsed * 2 + hash2(x + row * 7 + led, y) * 4) % 3 !== 0;
-          ctx.fillStyle = on ? (led === 2 ? '#f2c94c' : PALETTE.serverLight) : '#2a3040';
+          const ledColor = led === 2 ? '#f2c94c' : PALETTE.serverLight;
+          if (on) {
+            ctx.globalAlpha = 0.35;
+            ctx.fillStyle = ledColor;
+            ctx.beginPath();
+            ctx.arc(x - 12 + led * 9, ry, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+          ctx.fillStyle = on ? ledColor : '#2a3040';
           ctx.beginPath();
-          ctx.arc(x - 12 + led * 9, ry, 2.2, 0, Math.PI * 2);
+          ctx.arc(x - 12 + led * 9, ry, 2.6, 0, Math.PI * 2);
           ctx.fill();
         }
       }
