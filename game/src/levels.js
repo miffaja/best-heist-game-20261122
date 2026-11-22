@@ -45,7 +45,7 @@ function border() {
 }
 
 const groundFloor = {
-  name: 'MERIDIAN TRUST — GROUND FLOOR',
+  name: 'FLOOR 1 · MERIDIAN TRUST — GROUND FLOOR',
   subtitle: 'Floor 1 · lobby, gallery, vault and records office',
   spawn: { x: 110, y: 630 },
   extract: { x: 36, y: 592, w: 150, h: 92 }, // the getaway van idling by the rear door
@@ -134,7 +134,7 @@ const groundFloor = {
 };
 
 const vaultAnnex = {
-  name: 'VAULT ANNEX — BASEMENT',
+  name: 'FLOOR 2 · VAULT ANNEX — BASEMENT',
   subtitle: 'Floor 2 · a ring corridor around the sealed vault core',
   spawn: { x: 110, y: 630 },
   extract: { x: 36, y: 592, w: 150, h: 92 },
@@ -225,7 +225,7 @@ const vaultAnnex = {
  * and a vent pair that drops the thief behind the core's racks.
  */
 const skyVault = {
-  name: 'MERIDIAN SKY VAULT — PENTHOUSE',
+  name: 'FLOOR 3 · MERIDIAN SKY VAULT — PENTHOUSE',
   subtitle: 'Floor 3 · server lanes around the sealed data core',
   spawn: { x: 110, y: 630 },
   extract: { x: 36, y: 592, w: 150, h: 92 },

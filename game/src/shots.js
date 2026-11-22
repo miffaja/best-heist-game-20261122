@@ -56,9 +56,17 @@ function stageCover(world) {
   aimCamera(world, 1, -0.9); // gallery camera sweeping down-right, off the thief
   aimCamera(world, 2, -0.85); // vault camera sweeping down-left
   aimCamera(world, 3, 0.85); // office camera sweeping down-left
+  run(world, 2); // the gallery guard settles at his waypoint and starts scanning
+  // He scans toward the crossing — where the thief's smoke bomb is about to hang.
+  world.state.guards[1].scanBase = -0.81;
+  world.state.guards[1].lookTimer = 99;
   run(world, 12, MOVE_EAST); // mid-stride crossing, boots swinging
   tossCoin(world, 465, 365); // first coin: lands at the gallery guard's feet, far from the thief
   run(world, 30); // coin lands, guard turns to investigate ("?" up)
+  // A smoke bomb spent covering the crossing: the thief crosses inside his own cloud
+  // while the guard's cone stops dead at its edge (SMOKE ×1 in the HUD).
+  world.setTools(2, 1);
+  world.dropSmoke(580, 280, 5);
   tossCoin(world, 770, 175); // second coin: caught mid-arc in the frame
   run(world, 12);
   return { screen: SCREEN_PLAY, best: 6500, rating: null };
@@ -133,6 +141,10 @@ function stageExtract(world) {
   world.placePlayer(110, 640, Math.PI); // at the van
   world.setGuard(0, 640, 120, 0, 0.0, 'patrol'); // top corridor guard far north
   world.setGuard(1, 1130, 620, Math.PI, 0.0, 'patrol'); // bottom corridor, far east
+  // The EMP jammer fired for the getaway: every camera is JAMMED (no cones, violet
+  // pills) and the HUD chip counts the window down while the channel runs.
+  world.setTools(1, 2);
+  world.fireEmp(6);
   run(world, 210, HOLD); // hold E through the 3s channel -> extracted
   const over = world.state.caught;
   return {
