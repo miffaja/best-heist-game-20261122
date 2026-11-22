@@ -72,10 +72,14 @@ export function createWorld(random) {
     }
   }
 
-  function floater(x, y, text, color) {
+  function floater(x, y, text, color, size) {
     // Keep labels inside the field so edge events (west-wall vents, the van) stay readable.
-    const cx = Math.max(110, Math.min(FIELD.width - 110, x));
-    state.floaters.push({ x: cx, y, text, color, life: 1.4 });
+    // Big pill-backed labels are wider, so they clamp further from the edges.
+    const margin = (size || 18) >= 24 ? 175 : 110;
+    const cx = Math.max(margin, Math.min(FIELD.width - margin, x));
+    // Big floaters (size >= 24) are the tool proofs — EMP, vent transit — drawn
+    // with a pill backing so they survive shrinking to a thumbnail.
+    state.floaters.push({ x: cx, y, text, color, life: 1.4, size: size || 18 });
   }
 
   function loadLevel(index) {
@@ -365,7 +369,7 @@ export function createWorld(random) {
       state.empTimer = TOOLS.empSeconds;
       events.value |= EVENT_EMP;
       burst(p.x, p.y, '#b48ae8', 20, 160);
-      floater(p.x, p.y - 34, 'EMP — CAMERAS JAMMED!', '#b48ae8');
+      floater(p.x, p.y - 34, 'EMP — CAMERAS JAMMED!', '#b48ae8', 26);
     }
     if (input.smoke && p.smoke > 0) {
       p.smoke -= 1;
@@ -391,7 +395,7 @@ export function createWorld(random) {
           p.x = dest.x;
           p.y = dest.y;
           burst(p.x, p.y, '#9fb4c8', 10, 60);
-          floater(p.x, p.y - 30, 'THROUGH THE VENT', '#cfe4f7');
+          floater(p.x, p.y - 30, 'THROUGH THE VENT', '#cfe4f7', 26);
           events.value |= EVENT_VENT;
         }
       }

@@ -193,8 +193,10 @@ function stageExtract(world) {
   // Hold the evidence at full strength for the still: duct trail bright between
   // the grates, both tool floaters up (the sim has stopped, so they hold).
   world.setVentTrail(1228, 360, 52, 360);
-  world.state.floaters.push({ x: 150, y: 300, text: 'THROUGH THE VENT', color: '#cfe4f7', life: 1.4 });
-  world.state.floaters.push({ x: 150, y: 560, text: 'EMP — CAMERAS JAMMED!', color: '#b48ae8', life: 1.4 });
+  // Big pill-backed floaters (size 26): the vent transit and the EMP window are
+  // the frame's two tool proofs — they must read in the extract thumbnail.
+  world.state.floaters.push({ x: 170, y: 296, text: 'THROUGH THE VENT', color: '#cfe4f7', life: 1.4, size: 26 });
+  world.state.floaters.push({ x: 208, y: 556, text: 'EMP — CAMERAS JAMMED!', color: '#b48ae8', life: 1.4, size: 26 });
   return { screen: SCREEN_PLAY, best: 14000, rating: world.ghostRating() };
 }
 

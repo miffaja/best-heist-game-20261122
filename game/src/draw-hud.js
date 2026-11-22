@@ -239,24 +239,34 @@ export function drawGetawayBanner(ctx, state, rating) {
   ctx.textBaseline = 'top';
   text(ctx, `✓ CLEAN GETAWAY — HAUL SECURED $${state.player.haul.toLocaleString('en-US')}`,
     x + width / 2, y + 10, 30, '#7de8a0', 'center', true);
-  text(ctx, `GHOST RATING: ${rating || '—'}  ·  TIME ${formatTime(state.elapsed)}  ·  DETECTIONS ${state.detections}  ·  PEAK ALARM ${Math.round(state.alarmPeak)}%`,
-    x + width / 2, y + 50, 16, PALETTE.text, 'center', true);
+  // Sub-line kept to three big facts at 22px: rating, detections, time. (Peak
+  // alarm lives on the win report panel; at thumbnail size four facts at 16px
+  // read as none.)
+  text(ctx, `GHOST RATING: ${rating || '—'}  ·  ${state.detections} DETECTIONS  ·  TIME ${formatTime(state.elapsed)}`,
+    x + width / 2, y + 48, 22, PALETTE.text, 'center', true);
 }
 
-export function drawPanel(ctx, title, titleColor, lines, prompt) {
-  const width = 560;
-  const height = 104 + lines.length * 27 + 48;
-  const x = (FIELD.width - width) / 2;
-  const y = (FIELD.height - height) / 2;
+export function drawPanel(ctx, title, titleColor, lines, prompt, opts) {
+  // Default: the big centred report panel (title / pause / win). `opts.compact`
+  // shrinks it and anchors it bottom-left, so the caught report stops swallowing
+  // the frame — the room, the cones and the bust itself stay visible around it.
+  const compact = !!(opts && opts.compact);
+  const width = compact ? 520 : 560;
+  const titleSize = compact ? 30 : 34;
+  const lineSize = compact ? 15 : 16;
+  const lineStep = compact ? 24 : 27;
+  const height = (compact ? 88 : 104) + lines.length * lineStep + 48;
+  const x = compact ? 24 : (FIELD.width - width) / 2;
+  const y = compact ? FIELD.height - height - 58 : (FIELD.height - height) / 2;
   ctx.fillStyle = PALETTE.panel;
   ctx.fillRect(x, y, width, height);
   ctx.strokeStyle = PALETTE.panelEdge;
   ctx.lineWidth = 2;
   ctx.strokeRect(x + 1, y + 1, width - 2, height - 2);
   ctx.textBaseline = 'top';
-  text(ctx, title, FIELD.width / 2, y + 20, 34, titleColor, 'center', true);
+  text(ctx, title, x + width / 2, y + 20, titleSize, titleColor, 'center', true);
   lines.forEach((line, i) => {
-    text(ctx, line, FIELD.width / 2, y + 78 + i * 27, 16, PALETTE.text, 'center');
+    text(ctx, line, x + width / 2, y + (compact ? 66 : 78) + i * lineStep, lineSize, PALETTE.text, 'center');
   });
-  text(ctx, prompt, FIELD.width / 2, y + height - 38, 15, PALETTE.playerTrim, 'center', true);
+  text(ctx, prompt, x + width / 2, y + height - 38, 15, PALETTE.playerTrim, 'center', true);
 }

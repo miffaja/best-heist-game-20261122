@@ -509,8 +509,21 @@ export function drawEffects(ctx, state) {
   ctx.globalAlpha = 1;
   ctx.textBaseline = 'bottom';
   for (const f of state.floaters) {
+    const size = f.size || 18;
     ctx.globalAlpha = Math.min(1, f.life);
-    text(ctx, f.text, f.x, f.y, 18, f.color, 'center', true);
+    // Big floaters (the tool proofs: EMP, vent transit) ride on a dark pill so
+    // the label stays readable when the frame shrinks to a thumbnail.
+    if (size >= 24) {
+      ctx.font = `700 ${size}px ${FONT}`;
+      const w = ctx.measureText(f.text).width + 24;
+      const h = size + 12;
+      ctx.fillStyle = 'rgba(11,14,20,0.88)';
+      ctx.fillRect(f.x - w / 2, f.y - h + 4, w, h);
+      ctx.strokeStyle = f.color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(f.x - w / 2 + 0.5, f.y - h + 4.5, w - 1, h - 1);
+    }
+    text(ctx, f.text, f.x, f.y, size, f.color, 'center', true);
   }
   ctx.globalAlpha = 1;
 }

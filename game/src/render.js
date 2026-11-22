@@ -12,8 +12,8 @@
 import { FIELD, PALETTE } from './config.js';
 import { formatTime } from './draw-helpers.js';
 import {
-  drawExtractZone, drawFloors, drawLasers, drawLoot, drawPatrolRoutes, drawProps,
-  drawVaultDoors, drawVents, drawWalls,
+  drawExtractZone, drawFloors, drawLaserLabels, drawLasers, drawLoot, drawPatrolRoutes,
+  drawProps, drawVaultDoors, drawVents, drawWalls,
 } from './draw-rooms.js';
 import {
   drawCameraLabels, drawCameras, drawEffects, drawGuards, drawPlayer, drawSmoke,
@@ -67,6 +67,7 @@ export function createRenderer(canvas) {
     drawGuards(ctx, state);
     drawWalls(ctx, state);     // walls over cone edges so rooms read cleanly
     drawVaultDoors(ctx, state); // steel slabs + dials over the walls they seal
+    drawLaserLabels(ctx, state); // LASER / LASER DEAD pills over the doorway walls
     drawCameraLabels(ctx, state); // pills over the walls, under the thief
     drawPlayer(ctx, state);
     drawSmoke(ctx, state);     // smoke clouds swallow whoever stands in them
@@ -96,11 +97,13 @@ export function createRenderer(canvas) {
       drawPanel(ctx, 'PAUSED', PALETTE.text, ['The bank holds its breath.'], 'Press P or SPACE to resume');
     } else if (screen === SCREEN_OVER) {
       drawHud(ctx, state, best);
+      // Compact bottom-left report: the bust itself (guard, red cone, thief) is
+      // the evidence the moment was fair — it stays on screen around the panel.
       drawPanel(ctx, 'CAUGHT!', '#ff4d5e', [
-        'A guard got a hand on you. The vault keeps its secrets — this time.',
+        'A guard got a hand on you — the vault keeps its secrets.',
         `Haul lost: $${state.player.haul.toLocaleString('en-US')} · Time: ${formatTime(state.elapsed)}`,
         `Detections: ${state.detections} · Peak alarm: ${Math.round(state.alarmPeak)}%`,
-      ], 'Press SPACE or click to try the heist again');
+      ], 'Press SPACE or click to try the heist again', { compact: true });
     } else if (screen === SCREEN_WIN) {
       drawHud(ctx, state, best);
       const next = state.levelIndex + 1 < 3

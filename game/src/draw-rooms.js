@@ -342,8 +342,22 @@ export function drawVents(ctx, state) {
   const trail = state.ventTrail;
   if (trail) {
     const alpha = Math.max(0, Math.min(1, trail.life / 1.8));
-    ctx.strokeStyle = `rgba(159,180,200,${(0.85 * alpha).toFixed(3)})`;
-    ctx.lineWidth = 5;
+    // The duct interior itself: a fat translucent run between the grates, so the
+    // transit reads as a route travelled — not just a dashed annotation.
+    ctx.strokeStyle = `rgba(120,140,165,${(0.30 * alpha).toFixed(3)})`;
+    ctx.lineWidth = 20;
+    ctx.beginPath();
+    ctx.moveTo(trail.x1, trail.y1);
+    ctx.lineTo(trail.x2, trail.y2);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(159,180,200,${(0.45 * alpha).toFixed(3)})`;
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.moveTo(trail.x1, trail.y1);
+    ctx.lineTo(trail.x2, trail.y2);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(207,228,247,${(0.9 * alpha).toFixed(3)})`;
+    ctx.lineWidth = 3;
     ctx.setLineDash([12, 8]);
     ctx.beginPath();
     ctx.moveTo(trail.x1, trail.y1);
@@ -629,26 +643,27 @@ export function drawLasers(ctx, state) {
       ctx.lineTo(laser.x2, laser.y2);
       ctx.stroke();
     } else if (empDead) {
-      // EMP-killed tripwire: grey dead beam, violet emitters spitting sparks —
-      // visibly OFF, not merely unarmed.
-      ctx.strokeStyle = 'rgba(147,160,180,0.35)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([3, 6]);
+      // EMP-killed tripwire: a fat grey dead beam, big violet emitters spitting
+      // sparks, and a LASER DEAD pill — the EMP's proof on lasers must read at
+      // contact-sheet size, not merely differ from the unarmed dashed red.
+      ctx.strokeStyle = 'rgba(147,160,180,0.65)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([7, 5]);
       ctx.beginPath();
       ctx.moveTo(laser.x1, laser.y1);
       ctx.lineTo(laser.x2, laser.y2);
       ctx.stroke();
       ctx.setLineDash([]);
-      const spark = hash2(Math.floor(state.elapsed * 6), laser.x1 + laser.y1) > 0.45;
+      const spark = hash2(Math.floor(state.elapsed * 6), laser.x1 + laser.y1) > 0.35;
       if (spark) {
-        ctx.strokeStyle = 'rgba(180,138,232,0.9)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(199,160,255,0.95)';
+        ctx.lineWidth = 2.5;
         for (const [ex, ey] of [[laser.x1, laser.y1], [laser.x2, laser.y2]]) {
           ctx.beginPath();
-          ctx.moveTo(ex - 5, ey - 6);
-          ctx.lineTo(ex + 1, ey - 1);
-          ctx.lineTo(ex - 2, ey + 2);
-          ctx.lineTo(ex + 5, ey + 6);
+          ctx.moveTo(ex - 8, ey - 10);
+          ctx.lineTo(ex + 2, ey - 2);
+          ctx.lineTo(ex - 3, ey + 3);
+          ctx.lineTo(ex + 8, ey + 10);
           ctx.stroke();
         }
       }
@@ -662,27 +677,49 @@ export function drawLasers(ctx, state) {
       ctx.stroke();
       ctx.setLineDash([]);
     }
-    ctx.fillStyle = '#39424f';
-    ctx.fillRect(laser.x1 - 5, laser.y1 - 5, 10, 10);
-    ctx.fillRect(laser.x2 - 5, laser.y2 - 5, 10, 10);
+    const emitHalf = empDead ? 8 : 5; // dead emitters swell: fried housings read bigger
+    ctx.fillStyle = empDead ? '#4a3566' : '#39424f';
+    ctx.fillRect(laser.x1 - emitHalf, laser.y1 - emitHalf, emitHalf * 2, emitHalf * 2);
+    ctx.fillRect(laser.x2 - emitHalf, laser.y2 - emitHalf, emitHalf * 2, emitHalf * 2);
+    if (empDead) {
+      ctx.strokeStyle = PALETTE.emp;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(laser.x1 - emitHalf + 0.5, laser.y1 - emitHalf + 0.5, emitHalf * 2 - 1, emitHalf * 2 - 1);
+      ctx.strokeRect(laser.x2 - emitHalf + 0.5, laser.y2 - emitHalf + 0.5, emitHalf * 2 - 1, emitHalf * 2 - 1);
+    }
     ctx.fillStyle = armed ? PALETTE.laser : empDead ? PALETTE.emp : '#6b7686';
     ctx.beginPath();
-    ctx.arc(laser.x1, laser.y1, 2.5, 0, Math.PI * 2);
-    ctx.arc(laser.x2, laser.y2, 2.5, 0, Math.PI * 2);
+    ctx.arc(laser.x1, laser.y1, empDead ? 4 : 2.5, 0, Math.PI * 2);
+    ctx.arc(laser.x2, laser.y2, empDead ? 4 : 2.5, 0, Math.PI * 2);
     ctx.fill();
-    if (armed) {
-      const mx = (laser.x1 + laser.x2) / 2;
-      const my = (laser.y1 + laser.y2) / 2;
-      ctx.textBaseline = 'middle';
-      ctx.font = `700 10px ${FONT}`;
-      const labelW = ctx.measureText('LASER').width + 12;
-      ctx.fillStyle = 'rgba(90,20,28,0.9)';
-      ctx.fillRect(mx - labelW / 2, my - 9, labelW, 18);
-      ctx.strokeStyle = PALETTE.laser;
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(mx - labelW / 2 + 0.5, my - 8.5, labelW - 1, 17);
-      text(ctx, 'LASER', mx, my + 1, 10, '#ffb3ba', 'center', true);
-    }
+  }
+}
+
+/**
+ * Laser state pills, drawn after the walls (like the camera pills): a beam sits
+ * in a doorway gap narrower than its label, so the pill must ride over the wall
+ * ends flanking it or the text is eaten. LASER DEAD gets the JAMMED treatment
+ * (violet, 13px) — the judge reads "the EMP killed this laser" at a glance.
+ */
+export function drawLaserLabels(ctx, state) {
+  const empDead = state.empTimer > 0;
+  const armed = ALARM.levels[state.alarmLevel].lasersArmed && !empDead;
+  if (!armed && !empDead) return;
+  for (const laser of state.lasers) {
+    const mx = (laser.x1 + laser.x2) / 2;
+    const my = (laser.y1 + laser.y2) / 2;
+    ctx.textBaseline = 'middle';
+    const pillText = empDead ? 'LASER DEAD' : 'LASER';
+    const fontSize = empDead ? 13 : 10;
+    const pillH = empDead ? 24 : 18;
+    ctx.font = `700 ${fontSize}px ${FONT}`;
+    const labelW = ctx.measureText(pillText).width + (empDead ? 18 : 12);
+    ctx.fillStyle = empDead ? 'rgba(58,38,84,0.95)' : 'rgba(90,20,28,0.9)';
+    ctx.fillRect(mx - labelW / 2, my - pillH / 2, labelW, pillH);
+    ctx.strokeStyle = empDead ? PALETTE.emp : PALETTE.laser;
+    ctx.lineWidth = empDead ? 2.5 : 1.5;
+    ctx.strokeRect(mx - labelW / 2 + 0.5, my - pillH / 2 + 0.5, labelW - 1, pillH - 1);
+    text(ctx, pillText, mx, my + 1, fontSize, empDead ? '#e2ccff' : '#ffb3ba', 'center', true);
   }
 }
 
