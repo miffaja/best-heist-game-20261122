@@ -1,6 +1,11 @@
-// The two bank floors the thief can rob. A level is plain data: room tints, walls (kind 'wall'
-// and 'desk' block sight; kind 'low' is a planter or display case that hides a crouching thief),
-// loot placements, guard patrol routes, sweeping cameras and laser tripwires. Coordinates are
+// The two bank floors the thief can rob. A level is plain data: room tints with a floor
+// material each (marble lobby, carpet gallery, steel vault, wood office, concrete annex),
+// walls (kind 'wall' and 'desk' block sight; kind 'low' is a planter or display case that
+// hides a crouching thief), decorative props (statues, gem display cases, a security desk,
+// potted trees — they dress the rooms, they do not block), loot placements, guard patrol
+// routes, sweeping cameras, laser tripwires, and locked VAULT DOORS. A vault door seals a
+// doorway until the thief cracks it (hold E to spin the dial, release in the green, three
+// tumblers — see VAULT in config.js); the best loot sits behind them. Coordinates are
 // pixels in the 1280x720 field. The vault annex (floor 2) unlocks after a clean extraction.
 
 const T = 16; // interior wall thickness
@@ -45,11 +50,33 @@ const groundFloor = {
   spawn: { x: 110, y: 630 },
   extract: { x: 36, y: 592, w: 150, h: 92 }, // the getaway van idling by the rear door
   rooms: [
-    { x: 24, y: 24, w: 376, h: 672, tint: 'floorLobby', label: 'LOBBY' },
-    { x: 416, y: 24, w: 444, h: 416, tint: 'floorGallery', label: 'GALLERY' },
-    { x: 876, y: 24, w: 380, h: 416, tint: 'floorVault', label: 'VAULT' },
-    { x: 416, y: 456, w: 444, h: 240, tint: 'floorOffice', label: 'RECORDS OFFICE' },
-    { x: 876, y: 456, w: 380, h: 240, tint: 'floorVault', label: 'SERVICE' },
+    { x: 24, y: 24, w: 376, h: 672, tint: 'floorLobby', label: 'LOBBY', floor: 'marble' },
+    { x: 416, y: 24, w: 444, h: 416, tint: 'floorGallery', label: 'GALLERY', floor: 'carpet' },
+    { x: 876, y: 24, w: 380, h: 416, tint: 'floorVault', label: 'VAULT', floor: 'steel' },
+    { x: 416, y: 456, w: 444, h: 240, tint: 'floorOffice', label: 'RECORDS OFFICE', floor: 'wood' },
+    { x: 876, y: 456, w: 380, h: 240, tint: 'floorVault', label: 'SERVICE', floor: 'steel' },
+  ],
+  // Decorative set dressing (no collision): statues, gem cases, the security desk, trees.
+  props: [
+    { kind: 'statue', x: 62, y: 160 },
+    { kind: 'statue', x: 362, y: 62 },
+    { kind: 'tree', x: 62, y: 520 },
+    { kind: 'tree', x: 362, y: 640 },
+    { kind: 'security', x: 330, y: 560 },
+    { kind: 'statue', x: 448, y: 62 },
+    { kind: 'case', x: 826, y: 120 },
+    { kind: 'case', x: 448, y: 402 },
+    { kind: 'tree', x: 826, y: 402 },
+    { kind: 'case', x: 910, y: 62 },
+    { kind: 'statue', x: 1222, y: 62 },
+    { kind: 'tree', x: 910, y: 402 },
+    { kind: 'tree', x: 448, y: 660 },
+    { kind: 'case', x: 826, y: 490 },
+    { kind: 'security', x: 1066, y: 640 },
+  ],
+  // The ground-floor vault door seals the gallery→vault doorway (gap y 180–236 at x=860).
+  vaultDoors: [
+    { x: 868, y: 208, blocker: { x: 860, y: 180, w: 16, h: 56, kind: 'wall' } },
   ],
   walls: [
     ...border(),
@@ -105,8 +132,28 @@ const vaultAnnex = {
   spawn: { x: 110, y: 630 },
   extract: { x: 36, y: 592, w: 150, h: 92 },
   rooms: [
-    { x: 24, y: 24, w: 1232, h: 672, tint: 'floorAnnex', label: 'RING CORRIDOR' },
-    { x: 456, y: 236, w: 368, h: 248, tint: 'floorVault', label: 'VAULT CORE' },
+    { x: 24, y: 24, w: 1232, h: 672, tint: 'floorAnnex', label: 'RING CORRIDOR', floor: 'concrete' },
+    { x: 456, y: 236, w: 368, h: 248, tint: 'floorVault', label: 'VAULT CORE', floor: 'steel' },
+  ],
+  props: [
+    { kind: 'statue', x: 62, y: 150 },
+    { kind: 'statue', x: 1218, y: 62 },
+    { kind: 'statue', x: 1218, y: 540 },
+    { kind: 'tree', x: 320, y: 62 },
+    { kind: 'tree', x: 960, y: 62 },
+    { kind: 'tree', x: 320, y: 658 },
+    { kind: 'tree', x: 960, y: 658 },
+    { kind: 'security', x: 480, y: 650 },
+    { kind: 'case', x: 480, y: 452 },
+    { kind: 'case', x: 800, y: 452 },
+    { kind: 'case', x: 480, y: 268 },
+    { kind: 'case', x: 800, y: 268 },
+  ],
+  // The vault core is sealed by TWO vault doors (north + south). Crack either one to get
+  // in at the gold bars and the star artifact; the other stays locked until cracked too.
+  vaultDoors: [
+    { x: 640, y: 228, blocker: { x: 612, y: 220, w: 56, h: 16, kind: 'wall' } },
+    { x: 640, y: 492, blocker: { x: 612, y: 484, w: 56, h: 16, kind: 'wall' } },
   ],
   walls: [
     ...border(),

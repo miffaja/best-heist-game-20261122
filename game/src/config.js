@@ -71,6 +71,21 @@ export const NOISE = {
   coinRadius: 190,         // guards this close hear a tossed coin land
 };
 
+/**
+ * VAULT-CRACKING: the signature heist skill. A locked vault door seals the best loot.
+ * Stand at the door and HOLD E: the combination dial spins. RELEASE E while the needle
+ * is inside the green zone to set one tumbler; set all three to swing the door open.
+ * A release outside the green jams the mechanism and adds alarm — and the thief cannot
+ * move while the dial spins, so cracking under a patrol is a gamble.
+ */
+export const VAULT = {
+  crackRange: 56,          // px from the door centre where cracking is possible
+  needleSpeed: 2.7,        // rad/s the dial needle sweeps while E is held
+  greenHalf: 0.44,         // half-width of the green success zone, radians (~50° total)
+  tumblers: 3,             // successful releases needed to open the door
+  wrongAlarm: 8,           // alarm points added for a jammed (wrong) release
+};
+
 export const PALETTE = {
   backdrop: '#0b0e14',
   floorLobby: '#232a38',
@@ -112,6 +127,16 @@ export const PALETTE = {
   alarmWarn: '#f2c94c',
   alarmHot: '#ff7a4d',
   alarmLock: '#ff4d5e',
+  vaultDoor: '#39424f',     // steel vault door slab
+  vaultDoorEdge: '#9fb4c8', // polished rim + spokes
+  vaultGreen: '#58dc9c',    // the crack dial's green success zone
+  vaultRed: '#ff4d5e',      // jammed / danger zone on the dial
+  statue: '#8fa3bd',        // lobby statues
+  statueBase: '#2a3040',
+  treePot: '#7a4a2b',       // potted trees
+  treeLeaf: '#4f7a3d',
+  treeLeafHi: '#6fa055',
+  securityScreen: '#6eb4ff', // security-desk monitor glow
 };
 
 export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';

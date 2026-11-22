@@ -3,15 +3,17 @@
 // there. Screens: title, play, paused, caught (game over) and the getaway report (win).
 // Winning floor 1 unlocks floor 2, the vault annex.
 //
-// ?seed=N fixes the particle/scan randomness. ?shot=cover|camera|loot|extract (with
+// ?seed=N fixes the particle/scan randomness. ?shot=cover|camera|crack|extract (with
 // &seed=N) stages that scene instead of running the loop, paints it twice and sets
-// window.__shotReady for a screenshot.
+// window.__shotReady for a screenshot. The crack scene shows VAULT-CRACKING mid-lock:
+// hold E to spin the dial, release in the green, three tumblers to open the vault door.
 import { BEST_KEY, STEP } from './config.js';
 import { LEVELS } from './levels.js';
 import { createRandom } from './random.js';
 import {
   createWorld, EVENT_ALARM_UP, EVENT_CAMERA, EVENT_CAUGHT, EVENT_COIN_LAND,
   EVENT_EXTRACTED, EVENT_GUARD_ALERT, EVENT_LASER, EVENT_LOOT,
+  EVENT_VAULT_FAIL, EVENT_VAULT_OPEN, EVENT_VAULT_TUMBLER,
 } from './world.js';
 import { ACTION_CONFIRM, ACTION_MUTE, ACTION_PAUSE, createInput } from './input.js';
 import { createRenderer, SCREEN_OVER, SCREEN_PAUSED, SCREEN_PLAY, SCREEN_TITLE, SCREEN_WIN } from './render.js';
@@ -79,7 +81,7 @@ function runGame() {
     accumulator = 0;
     screen = SCREEN_PLAY;
     audio.unlock();
-    announce(`Heist started. ${LEVELS[index].name}. Grab loot and reach the van.`);
+    announce(`Heist started. ${LEVELS[index].name}. Grab loot, crack vault doors with E, and reach the van.`);
   }
 
   function endCaught() {
@@ -127,6 +129,9 @@ function runGame() {
     if (events & EVENT_GUARD_ALERT) audio.guardAlert();
     if (events & EVENT_COIN_LAND) audio.coinLand();
     if (events & EVENT_ALARM_UP) audio.guardAlert();
+    if (events & EVENT_VAULT_TUMBLER) audio.vaultTumbler();
+    if (events & EVENT_VAULT_FAIL) audio.vaultFail();
+    if (events & EVENT_VAULT_OPEN) audio.vaultOpen();
   }
 
   function step() {

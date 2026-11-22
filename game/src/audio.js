@@ -62,6 +62,10 @@ export function createAudio() {
     caught() { sequence([330, 262, 196, 147], 0.16, 'sawtooth', 0.18); },
     extracted() { sequence([523, 659, 784, 1046, 1318], 0.11, 'triangle', 0.18); },
     doorTick() { tone(740, 0.05, 'sine', 0.06); },
+    // Vault-cracking: a tumbler click, a jammed-lock buzz, and the heavy door clunk.
+    vaultTumbler() { tone(1180, 0.07, 'square', 0.14); setTimeout(() => tone(1568, 0.09, 'square', 0.12), 70); },
+    vaultFail() { tone(160, 0.28, 'sawtooth', 0.18, 90); },
+    vaultOpen() { sequence([196, 147, 262, 392], 0.12, 'triangle', 0.2); },
     /**
      * The looping two-tone alarm. Level 0 = silent, 1 = suspicious (slow, quiet),
      * 2 = hunted, 3 = lockdown (fast, loud). Driven by the world's alarm meter.

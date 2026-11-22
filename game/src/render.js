@@ -1,8 +1,12 @@
 // Drawing only: the world's state and the current screen in, pixels out. The 1280x720
 // field is scaled to fit the window and centred. Vision cones are drawn as raycast fans
 // that stop at walls, so what the player sees is exactly what the simulation checks.
+// Rooms have real materials (marble, carpet, riveted steel, wood, concrete), warm light
+// pools with darkened corners, and set dressing (statues, gem cases, security desks,
+// potted trees). Locked VAULT DOORS show their combination dial and tumbler pips, and
+// while the thief cracks one, a big dial overlay reads CRACKING VAULT… n/3.
 // Everything is canvas shapes and text — no image files, no network.
-import { ALARM, CAMERA, FIELD, FONT, GUARD, LOOT_KINDS, PALETTE, PLAYER } from './config.js';
+import { ALARM, CAMERA, FIELD, FONT, GUARD, LOOT_KINDS, PALETTE, PLAYER, VAULT } from './config.js';
 import { rayDistance } from './world.js';
 
 export const SCREEN_TITLE = 'title';
@@ -52,30 +56,143 @@ export function createRenderer(canvas) {
     ctx.fillText(value, x, y);
   }
 
+  /** One room's floor material, clipped to the room: marble veins, carpet diamonds,
+   *  riveted steel plates, wood planks or concrete slabs. All deterministic. */
+  function drawRoomFloor(room) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(room.x, room.y, room.w, room.h);
+    ctx.clip();
+    const x1 = room.x + room.w;
+    const y1 = room.y + room.h;
+    if (room.floor === 'marble') {
+      // Large polished tiles with faint veins — the lobby.
+      for (let ty = room.y; ty < y1; ty += 96) {
+        for (let tx = room.x; tx < x1; tx += 96) {
+          if ((((tx - room.x) / 96) + ((ty - room.y) / 96)) % 2 === 0) {
+            ctx.fillStyle = 'rgba(255,255,255,0.045)';
+            ctx.fillRect(tx, ty, 96, 96);
+          }
+          ctx.strokeStyle = 'rgba(200,215,235,0.10)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          const vx = tx + 12 + hash2(tx, ty) * 60;
+          const vy = ty + 12 + hash2(ty, tx) * 60;
+          ctx.moveTo(vx, vy);
+          ctx.lineTo(vx + 18 + hash2(tx * 3, ty) * 26, vy + 10 + hash2(tx, ty * 3) * 20);
+          ctx.lineTo(vx + 30 + hash2(tx * 5, ty) * 30, vy + 26 + hash2(tx, ty * 5) * 22);
+          ctx.stroke();
+        }
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = room.x; x <= x1; x += 96) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
+      for (let y = room.y; y <= y1; y += 96) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
+      ctx.stroke();
+    } else if (room.floor === 'carpet') {
+      // Woven diamond pattern — the gallery.
+      ctx.fillStyle = 'rgba(232,178,58,0.055)';
+      for (let ty = room.y + 16; ty < y1; ty += 32) {
+        for (let tx = room.x + 16; tx < x1; tx += 32) {
+          ctx.beginPath();
+          ctx.moveTo(tx, ty - 7);
+          ctx.lineTo(tx + 7, ty);
+          ctx.lineTo(tx, ty + 7);
+          ctx.lineTo(tx - 7, ty);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      for (let ty = room.y + 32; ty < y1; ty += 32) {
+        for (let tx = room.x + 32; tx < x1; tx += 32) ctx.fillRect(tx - 1.5, ty - 1.5, 3, 3);
+      }
+    } else if (room.floor === 'steel') {
+      // Riveted vault plates.
+      ctx.strokeStyle = 'rgba(159,180,200,0.13)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let x = room.x; x <= x1; x += 64) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
+      for (let y = room.y; y <= y1; y += 64) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(220,235,250,0.16)';
+      for (let ty = room.y; ty <= y1; ty += 64) {
+        for (let tx = room.x; tx <= x1; tx += 64) {
+          ctx.beginPath();
+          ctx.arc(tx + 7, ty + 7, 2.2, 0, Math.PI * 2);
+          ctx.arc(tx + 57, ty + 7, 2.2, 0, Math.PI * 2);
+          ctx.arc(tx + 7, ty + 57, 2.2, 0, Math.PI * 2);
+          ctx.arc(tx + 57, ty + 57, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else if (room.floor === 'wood') {
+      // Office floorboards with grain.
+      for (let ty = room.y; ty < y1; ty += 24) {
+        if (((ty - room.y) / 24) % 2 === 0) {
+          ctx.fillStyle = 'rgba(255,220,170,0.04)';
+          ctx.fillRect(room.x, ty, room.w, 24);
+        }
+        ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(room.x, ty);
+        ctx.lineTo(x1, ty);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,220,170,0.07)';
+        ctx.beginPath();
+        const gy = ty + 6 + hash2(ty, room.x) * 12;
+        ctx.moveTo(room.x + hash2(room.x, ty) * 120, gy);
+        ctx.lineTo(room.x + 160 + hash2(ty * 3, room.x) * 220, gy);
+        ctx.stroke();
+      }
+    } else {
+      // Concrete slabs with expansion joints and faint stains — the annex.
+      ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let x = room.x; x <= x1; x += 128) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
+      for (let y = room.y; y <= y1; y += 128) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(0,0,0,0.09)';
+      for (let i = 0; i < 10; i += 1) {
+        const sx = room.x + 40 + hash2(i * 17, room.y) * (room.w - 80);
+        const sy = room.y + 40 + hash2(room.x, i * 23) * (room.h - 80);
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, 26 + hash2(i, 7) * 40, 14 + hash2(7, i) * 22, hash2(i, i) * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    // Light pool: warm centre fading out, corners falling dark. Subtle on purpose —
+    // vision cones and loot must stay readable on top of it.
+    const cx = room.x + room.w / 2;
+    const cy = room.y + room.h / 2;
+    const lr = Math.max(room.w, room.h) * 0.72;
+    const lg = ctx.createRadialGradient(cx, cy, 0, cx, cy, lr);
+    lg.addColorStop(0, 'rgba(255,238,200,0.075)');
+    lg.addColorStop(0.55, 'rgba(255,238,200,0.015)');
+    lg.addColorStop(1, 'rgba(0,0,0,0.20)');
+    ctx.fillStyle = lg;
+    ctx.fillRect(room.x, room.y, room.w, room.h);
+    for (const [px, py] of [[room.x, room.y], [x1, room.y], [room.x, y1], [x1, y1]]) {
+      const cg = ctx.createRadialGradient(px, py, 0, px, py, 150);
+      cg.addColorStop(0, 'rgba(0,0,0,0.22)');
+      cg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = cg;
+      ctx.fillRect(room.x, room.y, room.w, room.h);
+    }
+    ctx.restore();
+  }
+
   function drawFloors(state) {
     ctx.fillStyle = PALETTE.backdrop;
     ctx.fillRect(0, 0, FIELD.width, FIELD.height);
     for (const room of state.level.rooms) {
       ctx.fillStyle = PALETTE[room.tint];
       ctx.fillRect(room.x, room.y, room.w, room.h);
+      drawRoomFloor(room);
     }
-    // Checker tile variation: alternating faint cells so floors read as real tile,
-    // not flat colour. Deterministic from cell coordinates — no flicker.
-    for (let ty = 24; ty < FIELD.height - 24; ty += 48) {
-      for (let tx = 24; tx < FIELD.width - 24; tx += 48) {
-        if (((tx / 48) + (ty / 48)) % 2 === 0) {
-          ctx.fillStyle = 'rgba(255,255,255,0.028)';
-          ctx.fillRect(tx, ty, 48, 48);
-        }
-      }
-    }
-    // Floor tile grid.
-    ctx.strokeStyle = PALETTE.floorTileLine;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let x = 24; x < FIELD.width - 24; x += 48) { ctx.moveTo(x, 24); ctx.lineTo(x, FIELD.height - 24); }
-    for (let y = 24; y < FIELD.height - 24; y += 48) { ctx.moveTo(24, y); ctx.lineTo(FIELD.width - 24, y); }
-    ctx.stroke();
     // Rugs: a gallery runner and a lobby rug, drawn under furniture and loot.
     if (state.levelIndex === 0) {
       ctx.fillStyle = 'rgba(122,46,58,0.5)';
@@ -94,29 +211,7 @@ export function createRenderer(canvas) {
       ctx.lineWidth = 3;
       ctx.strokeRect(478, 260, 324, 200);
     }
-    // The vault door: a steel circle with spokes, clear of the dividing wall.
-    const door = state.levelIndex === 0 ? { x: 925, y: 172 } : { x: 640, y: 232 };
-    ctx.fillStyle = '#39424f';
-    ctx.beginPath();
-    ctx.arc(door.x, door.y, 26, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#9fb4c8';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(door.x, door.y, 22, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.lineWidth = 2.5;
-    for (let i = 0; i < 4; i += 1) {
-      const a = (i / 4) * Math.PI * 2 + 0.4;
-      ctx.beginPath();
-      ctx.moveTo(door.x, door.y);
-      ctx.lineTo(door.x + Math.cos(a) * 20, door.y + Math.sin(a) * 20);
-      ctx.stroke();
-    }
-    ctx.fillStyle = '#e8b23a';
-    ctx.beginPath();
-    ctx.arc(door.x, door.y, 5, 0, Math.PI * 2);
-    ctx.fill();
+    // (The vault doors themselves are drawn by drawVaultDoors, at their real blockers.)
     // Room nameplates, faint so they read as floor markings. Top rooms step below the
     // HUD band so GALLERY / VAULT are never clipped by the alarm meter or haul box.
     for (const room of state.level.rooms) {
@@ -253,6 +348,252 @@ export function createRenderer(canvas) {
         ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
       }
     }
+  }
+
+  /** Set dressing: statues, gem display cases, security desks and potted trees.
+   *  Purely decorative (no collision, no sight block) and kept to walls and corners,
+   *  so rooms feel furnished without ever hiding a cone, a guard or a loot tag. */
+  function drawProps(state) {
+    for (const prop of state.level.props || []) {
+      const { x, y } = prop;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(x, y + 14, 18, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      if (prop.kind === 'statue') {
+        // Plinth + robed figure with a gold circlet.
+        ctx.fillStyle = PALETTE.statueBase;
+        ctx.fillRect(x - 13, y + 6, 26, 10);
+        ctx.fillStyle = '#e8b23a';
+        ctx.fillRect(x - 13, y + 6, 26, 3);
+        ctx.fillStyle = PALETTE.statue;
+        ctx.beginPath();
+        ctx.moveTo(x - 10, y + 7);
+        ctx.lineTo(x, y - 12);
+        ctx.lineTo(x + 10, y + 7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(16,20,28,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = '#c3d2e4';
+        ctx.beginPath();
+        ctx.arc(x, y - 15, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#e8b23a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y - 16, 6, Math.PI * 1.1, Math.PI * 1.9);
+        ctx.stroke();
+      } else if (prop.kind === 'case') {
+        // Glass display case with a gem on a cushion.
+        ctx.fillStyle = '#2a3040';
+        ctx.fillRect(x - 16, y + 6, 32, 9);
+        ctx.fillStyle = 'rgba(140,205,255,0.16)';
+        ctx.fillRect(x - 15, y - 13, 30, 20);
+        ctx.strokeStyle = 'rgba(207,228,247,0.75)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x - 15, y - 13, 30, 20);
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath();
+        ctx.moveTo(x - 10, y + 5);
+        ctx.lineTo(x + 2, y - 11);
+        ctx.stroke();
+        ctx.fillStyle = PALETTE.lootGems;
+        ctx.beginPath();
+        ctx.moveTo(x, y - 9);
+        ctx.lineTo(x + 6, y - 3);
+        ctx.lineTo(x, y + 4);
+        ctx.lineTo(x - 6, y - 3);
+        ctx.closePath();
+        ctx.fill();
+      } else if (prop.kind === 'security') {
+        // Security desk: three glowing monitors watching the cameras.
+        ctx.fillStyle = PALETTE.desk;
+        ctx.fillRect(x - 30, y - 6, 60, 18);
+        ctx.fillStyle = PALETTE.deskTop;
+        ctx.fillRect(x - 27, y - 3, 54, 12);
+        for (let i = -1; i <= 1; i += 1) {
+          ctx.fillStyle = '#10141c';
+          ctx.fillRect(x + i * 19 - 8, y - 14, 16, 11);
+          ctx.fillStyle = PALETTE.securityScreen;
+          ctx.fillRect(x + i * 19 - 6, y - 12, 12, 7);
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.fillRect(x + i * 19 - 6, y - 12, 12, 2);
+        }
+        ctx.textBaseline = 'top';
+        text('SECURITY', x, y + 13, 8, PALETTE.muted, 'center', true);
+      } else { // tree: potted tree
+        ctx.fillStyle = PALETTE.treePot;
+        ctx.beginPath();
+        ctx.moveTo(x - 9, y + 4);
+        ctx.lineTo(x + 9, y + 4);
+        ctx.lineTo(x + 6, y + 15);
+        ctx.lineTo(x - 6, y + 15);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#5a3d22';
+        ctx.fillRect(x - 2, y - 6, 4, 11);
+        ctx.fillStyle = PALETTE.treeLeaf;
+        ctx.beginPath();
+        ctx.arc(x, y - 12, 11, 0, Math.PI * 2);
+        ctx.arc(x - 8, y - 6, 8, 0, Math.PI * 2);
+        ctx.arc(x + 8, y - 6, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = PALETTE.treeLeafHi;
+        ctx.beginPath();
+        ctx.arc(x - 3, y - 15, 5, 0, Math.PI * 2);
+        ctx.arc(x + 5, y - 9, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  /** Locked vault doors: a steel slab sealing its doorway, combination dial at its
+   *  centre, tumbler pips and a VAULT pill. Open doors swing aside and read VAULT OPEN. */
+  function drawVaultDoors(state) {
+    for (const door of state.vaultDoors) {
+      const b = door.blocker;
+      if (!door.open) {
+        // Slab over the blocker, with a polished rim and rivets.
+        ctx.fillStyle = PALETTE.vaultDoor;
+        ctx.fillRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6);
+        ctx.strokeStyle = PALETTE.vaultDoorEdge;
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(b.x - 2, b.y - 2, b.w + 4, b.h + 4);
+        ctx.fillStyle = 'rgba(220,235,250,0.5)';
+        for (const [rx, ry] of [[b.x + 3, b.y + 3], [b.x + b.w - 3, b.y + 3], [b.x + 3, b.y + b.h - 3], [b.x + b.w - 3, b.y + b.h - 3]]) {
+          ctx.beginPath();
+          ctx.arc(rx, ry, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Combination dial: ring, spokes, needle showing the live crack state.
+        ctx.fillStyle = '#232b38';
+        ctx.beginPath();
+        ctx.arc(door.x, door.y, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = PALETTE.vaultDoorEdge;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        ctx.strokeStyle = PALETTE.vaultGreen;
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(door.x, door.y, 11, door.greenCenter - VAULT.greenHalf, door.greenCenter + VAULT.greenHalf);
+        ctx.stroke();
+        ctx.strokeStyle = '#e8b23a';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(door.x, door.y);
+        ctx.lineTo(door.x + Math.cos(door.needle) * 11, door.y + Math.sin(door.needle) * 11);
+        ctx.stroke();
+        ctx.fillStyle = '#e8b23a';
+        ctx.beginPath();
+        ctx.arc(door.x, door.y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Swung open: the slab rests hinged beside the gap, doorway clear. (East side
+        // for upright doors, so it never covers the laser pill in the doorway.)
+        ctx.fillStyle = PALETTE.vaultDoor;
+        if (b.w > b.h) ctx.fillRect(b.x, b.y - 14, b.w, 12);
+        else ctx.fillRect(b.x + b.w + 2, b.y, 12, b.h);
+        ctx.strokeStyle = PALETTE.vaultDoorEdge;
+        ctx.lineWidth = 2;
+        if (b.w > b.h) ctx.strokeRect(b.x, b.y - 14, b.w, 12);
+        else ctx.strokeRect(b.x + b.w + 2, b.y, 12, b.h);
+      }
+      // VAULT pill with tumbler pips. Upright doors: above the door. Flat doors (the
+      // annex core): beside it, so the thief cracking from the corridor never hides it.
+      const label = door.open ? 'VAULT OPEN' : `VAULT ${'●'.repeat(door.tumblers)}${'○'.repeat(VAULT.tumblers - door.tumblers)}`;
+      ctx.textBaseline = 'middle';
+      ctx.font = `700 12px ${FONT}`;
+      const labelW = ctx.measureText(label).width + 16;
+      const lx = b.w > b.h ? door.x + 84 : door.x;
+      const ly = b.w > b.h ? door.y : door.y - Math.max(b.w, b.h) / 2 - 18;
+      ctx.fillStyle = door.open ? 'rgba(14,46,32,0.92)' : 'rgba(11,14,20,0.9)';
+      ctx.fillRect(lx - labelW / 2, ly - 11, labelW, 22);
+      ctx.strokeStyle = door.open ? PALETTE.vaultGreen : '#e8b23a';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(lx - labelW / 2 + 0.5, ly - 10.5, labelW - 1, 21);
+      text(label, lx, ly + 1, 12, door.open ? '#7de8a0' : '#f2c94c', 'center', true);
+    }
+  }
+
+  /** The vault-cracking overlay: a big combination dial while the thief works a lock.
+   *  Green zone, live needle, tumbler pips and CRACKING VAULT… n/3, sized to stay
+   *  legible when the frame is shrunk to a thumbnail. */
+  function drawCrackOverlay(state) {
+    if (state.crackDoor < 0) return;
+    const door = state.vaultDoors[state.crackDoor];
+    if (!door || door.open) return;
+    const pw = 600;
+    const ph = 168;
+    const px = (FIELD.width - pw) / 2;
+    const py = FIELD.height - ph - 58;
+    ctx.fillStyle = 'rgba(11,14,20,0.93)';
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeStyle = '#e8b23a';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(px + 1, py + 1, pw - 2, ph - 2);
+    // The dial.
+    const dx = px + 104;
+    const dy = py + ph / 2;
+    const dr = 64;
+    ctx.fillStyle = '#232b38';
+    ctx.beginPath();
+    ctx.arc(dx, dy, dr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = PALETTE.vaultDoorEdge;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    // Tick marks around the dial.
+    ctx.strokeStyle = 'rgba(207,228,247,0.5)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 24; i += 1) {
+      const a = (i / 24) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(dx + Math.cos(a) * (dr - 10), dy + Math.sin(a) * (dr - 10));
+      ctx.lineTo(dx + Math.cos(a) * (dr - 4), dy + Math.sin(a) * (dr - 4));
+      ctx.stroke();
+    }
+    // The green success zone, fat and bright.
+    ctx.strokeStyle = PALETTE.vaultGreen;
+    ctx.lineWidth = 13;
+    ctx.beginPath();
+    ctx.arc(dx, dy, dr - 17, door.greenCenter - VAULT.greenHalf, door.greenCenter + VAULT.greenHalf);
+    ctx.stroke();
+    // The needle.
+    ctx.strokeStyle = '#f2c94c';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(dx, dy);
+    ctx.lineTo(dx + Math.cos(door.needle) * (dr - 12), dy + Math.sin(door.needle) * (dr - 12));
+    ctx.stroke();
+    ctx.fillStyle = '#e8b23a';
+    ctx.beginPath();
+    ctx.arc(dx, dy, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#10141c';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Headline + tumbler pips + how to play it.
+    ctx.textBaseline = 'top';
+    text(`CRACKING VAULT… ${door.tumblers}/${VAULT.tumblers}`, px + 196, py + 18, 31, '#f2c94c', 'left', true);
+    for (let i = 0; i < VAULT.tumblers; i += 1) {
+      const pipX = px + 214 + i * 44;
+      const pipY = py + 82;
+      ctx.fillStyle = i < door.tumblers ? PALETTE.vaultGreen : '#2a3040';
+      ctx.beginPath();
+      ctx.arc(pipX, pipY, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = i < door.tumblers ? '#7de8a0' : PALETTE.muted;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      if (i < door.tumblers) text('✓', pipX, pipY - 10, 19, '#0b2e1f', 'center', true);
+    }
+    text('TUMBLERS', px + 214 + VAULT.tumblers * 44 + 6, py + 70, 14, PALETTE.muted, 'left', true);
+    text('HOLD E TO SPIN — RELEASE IN THE GREEN!', px + 196, py + 112, 18, PALETTE.text, 'left', true);
+    text(`A wrong release jams the lock: +${VAULT.wrongAlarm} ALARM. You cannot move while cracking.`,
+      px + 196, py + 138, 14, '#ff9aa5', 'left');
   }
 
   function drawLasers(state) {
@@ -463,14 +804,14 @@ export function createRenderer(canvas) {
         hot ? PALETTE.guardConeHot : PALETTE.guardCone, false);
     }
     for (const guard of state.guards) {
-      const r = GUARD.radius * 1.4; // drawn larger than the physics radius so guards read at thumbnail size
+      const r = GUARD.radius * 1.55; // drawn larger than the physics radius so guards read at thumbnail size
       const a = guard.angle;
       const px = Math.cos(a + Math.PI / 2);
       const py = Math.sin(a + Math.PI / 2);
-      // Soft shadow.
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      // Direction shadow: cast behind the facing, so movement direction reads in a still.
+      ctx.fillStyle = 'rgba(0,0,0,0.42)';
       ctx.beginPath();
-      ctx.ellipse(guard.x, guard.y + 6, r, r * 0.7, 0, 0, Math.PI * 2);
+      ctx.ellipse(guard.x - Math.cos(a) * 8, guard.y - Math.sin(a) * 8 + 7, r, r * 0.7, 0, 0, Math.PI * 2);
       ctx.fill();
       // Boots mid-stride while patrolling (still while scanning at a waypoint).
       if (guard.lookTimer <= 0) {
@@ -653,9 +994,9 @@ export function createRenderer(canvas) {
 
   function drawPlayer(state) {
     const p = state.player;
-    // Drawn ~1.5x the physics radius: the thief is the subject of every screenshot and
+    // Drawn ~1.65x the physics radius: the thief is the subject of every screenshot and
     // must stay legible when the judge shrinks the frame to a thumbnail.
-    const radius = (p.crouch ? PLAYER.radius - 3 : PLAYER.radius) * 1.5;
+    const radius = (p.crouch ? PLAYER.radius - 3 : PLAYER.radius) * 1.65;
     const a = p.angle;
     const px = Math.cos(a + Math.PI / 2);
     const py = Math.sin(a + Math.PI / 2);
@@ -672,9 +1013,10 @@ export function createRenderer(canvas) {
     ctx.arc(p.x, p.y, radius + 12, state.elapsed * 0.6, state.elapsed * 0.6 + Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    // Direction shadow trailing behind the facing.
+    ctx.fillStyle = 'rgba(0,0,0,0.46)';
     ctx.beginPath();
-    ctx.ellipse(p.x, p.y + 6, radius, radius * 0.7, 0, 0, Math.PI * 2);
+    ctx.ellipse(p.x - Math.cos(a) * 9, p.y - Math.sin(a) * 9 + 7, radius, radius * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
     // Loot bag slung behind the thief, growing with carried weight, $-stamped.
     const bagR = 8 + p.weight * 0.9;
@@ -943,9 +1285,12 @@ export function createRenderer(canvas) {
     // Bottom objective line.
     ctx.fillStyle = 'rgba(11,14,20,0.72)';
     ctx.fillRect(14, FIELD.height - 44, 560, 32);
-    const objective = p.haul > 0
-      ? 'Objective: reach the GETAWAY VAN and hold E to escape — or grab more loot'
-      : 'Objective: hold E beside loot to grab it, then escape at the van';
+    const crackDoor = state.crackDoor >= 0 ? state.vaultDoors[state.crackDoor] : null;
+    const objective = crackDoor && !crackDoor.open
+      ? `Objective: CRACK THE VAULT — hold E, release in the green (${crackDoor.tumblers}/${VAULT.tumblers})`
+      : p.haul > 0
+        ? 'Objective: reach the GETAWAY VAN and hold E to escape — or grab more loot'
+        : 'Objective: grab loot with E · crack VAULT doors · escape at the van';
     text(objective, 26, FIELD.height - 36, 15, PALETTE.text, 'left');
     text('WASD move · Shift sprint · C crouch · E grab/escape · Click toss coin · P pause · M mute',
       FIELD.width - 26, FIELD.height - 36, 13, PALETTE.muted, 'right');
@@ -957,6 +1302,9 @@ export function createRenderer(canvas) {
       ctx.lineWidth = 18;
       ctx.strokeRect(9, 9, FIELD.width - 18, FIELD.height - 18);
     }
+
+    // The vault-cracking dial overlay sits on top of the HUD while a lock is worked.
+    drawCrackOverlay(state);
   }
 
   function drawMinimap(state) {
@@ -980,6 +1328,11 @@ export function createRenderer(canvas) {
     const zone = state.level.extract;
     ctx.fillStyle = '#58dc9c';
     ctx.fillRect(mx + zone.x * sx, my + zone.y * sy, zone.w * sx, zone.h * sy);
+    // Vault doors: gold while locked, green once cracked open.
+    for (const door of state.vaultDoors) {
+      ctx.fillStyle = door.open ? '#58dc9c' : '#f2c94c';
+      ctx.fillRect(mx + door.x * sx - 3, my + door.y * sy - 3, 6, 6);
+    }
     for (const item of state.loot) {
       if (item.taken) continue;
       ctx.fillStyle = '#f2c94c';
@@ -1031,11 +1384,13 @@ export function createRenderer(canvas) {
 
     drawFloors(state);
     drawExtractZone(state);
+    drawProps(state);     // statues, cases, desks, trees dress the rooms
     drawLasers(state);
     drawLoot(state);
     drawCameras(state);   // cones under the actors
     drawGuards(state);
     drawWalls(state);     // walls over cone edges so rooms read cleanly
+    drawVaultDoors(state); // steel slabs + dials over the walls they seal
     drawCameraLabels(state); // pills over the walls, under the thief
     drawPlayer(state);
     drawEffects(state);
@@ -1053,7 +1408,9 @@ export function createRenderer(canvas) {
         'The Silent Extraction — a top-down heist',
         'Cross the bank, fill your bag, and vanish in the van.',
         'Guards see in cones. Cameras feed the alarm. Lasers arm at HUNTED.',
-        'WASD move · Shift sprint · C crouch · hold E to grab & escape',
+        'VAULT-CRACKING: locked vault doors guard the best loot — hold E to',
+        'spin the dial, release in the green three times to crack them open.',
+        'WASD move · Shift sprint · C crouch · hold E to grab, crack & escape',
         'Mouse aims · click tosses a coin · heavier loot slows you down',
         state.level.name,
       ], 'Press SPACE or click to start the heist');

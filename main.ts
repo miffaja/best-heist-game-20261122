@@ -9,9 +9,12 @@
 // ground floor and the vault annex basement), grabs weighted loot — cash, gem cases,
 // gold bars, a star artifact — while guards patrol with real vision cones, cameras sweep
 // and feed an escalating alarm meter (CALM, SUSPICIOUS, HUNTED, LOCKDOWN), laser
-// tripwires arm, and the getaway van waits by the rear door. Screenshots live in
-// screenshots/ (the first by name is the cover: thief mid-crossing, guard cones, cameras,
-// loot and the alarm meter in one frame).
+// tripwires arm, and the getaway van waits by the rear door. Locked VAULT DOORS seal the
+// best loot: VAULT-CRACKING means holding E at a door to spin its combination dial and
+// releasing E with the needle in the green zone, three tumblers to swing it open (a
+// jammed release raises the alarm). Screenshots live in screenshots/ (the first by name
+// is the cover: thief mid-crossing, guard cones, cameras, loot and the alarm meter in
+// one frame; the third shows the vault-cracking dial at 2/3 tumblers).
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:

@@ -1,18 +1,18 @@
-// The screenshot scenes behind ?shot=cover|camera|loot|extract. Each scene places real
+// The screenshot scenes behind ?shot=cover|camera|crack|extract. Each scene places real
 // entities with the world's staging helpers and then runs the ordinary simulation forward
 // for a fixed number of steps, so every frame is what the game itself renders — guards
 // patrol, cones sweep, meters fill — and the same seed always gives the same frame.
 //
 // Staging rule for every scene: the thief stands in open floor with at most one cone
 // touching him, cones point in different directions so they never stack into mud, and
-// each frame shows one mechanic legibly — coin toss, camera + lasers, crouched grab,
-// extraction — instead of all of them at once.
+// each frame shows one mechanic legibly — coin toss, camera + lasers, VAULT-CRACKING
+// (hold E to spin the dial, release in the green, three tumblers), extraction —
+// instead of all of them at once.
 import { CAMERA, STEP } from './config.js';
 import { SCREEN_OVER, SCREEN_PLAY, SCREEN_WIN } from './render.js';
 
 const NEUTRAL = { mx: 0, my: 0, interact: false, crouch: false, sprint: false };
 const HOLD = { mx: 0, my: 0, interact: true, crouch: false, sprint: false };
-const CROUCH_HOLD = { mx: 0, my: 0, interact: true, crouch: true, sprint: false };
 const MOVE_EAST = { mx: 1, my: 0, interact: false, crouch: false, sprint: false };
 
 function run(world, steps, input) {
@@ -43,6 +43,7 @@ function stageCover(world) {
   world.loadLevel(0);
   world.setElapsed(42);
   world.setAlarm(45); // SUSPICIOUS band
+  world.openVault(0); // the vault door was cracked earlier: the gold below is already his
   world.giveLoot('cash'); // teller register already in the bag
   world.giveLoot('gold'); // vault bars too: weight 4, the HEAVY tag shows
   world.placePlayer(610, 245, 0); // on the gallery rug, heading right toward the gem case
@@ -72,6 +73,7 @@ function stageCamera(world) {
   world.loadLevel(0);
   world.setElapsed(96);
   world.setAlarm(68); // HUNTED band: lasers armed
+  world.openVault(0); // cracked his way into the vault — now the camera has him
   world.giveLoot('cash');
   // In the VAULT beside the doorway laser (x=868), under the vault camera: the CCTV
   // cone is on the thief and the LASER beam is in frame at his left.
@@ -86,20 +88,28 @@ function stageCamera(world) {
 }
 
 /**
- * LOOT — floor 2, the vault annex: the thief CROUCHED mid-grab on gold bars inside the
- * vault core, fat progress ring half full with its GRABBING label, armed lasers glowing
- * on the core doors, and the core guard's cone pointed away at the far wall.
+ * CRACK — floor 2, the vault annex: VAULT-CRACKING at the sealed core's north door.
+ * The thief stands at the steel vault door with E held and the combination dial
+ * spinning, needle inside the green zone, two of three tumblers already set —
+ * CRACKING VAULT… 2/3 on the big overlay, VAULT ●●○ on the door itself. The core's
+ * gold bars and star artifact wait behind the door; the core guard's cone points at
+ * the far wall and the corridor guard has not reached him yet. One more clean
+ * release and the vault swings open; a jammed one raises the alarm.
  */
-function stageLoot(world) {
+function stageCrack(world) {
   world.loadLevel(1);
   world.setElapsed(130);
-  world.setAlarm(60); // HUNTED band
-  world.giveLoot('gems');
-  world.placePlayer(555, 372, -Math.PI / 2); // beside the gold bars, facing them
+  world.setAlarm(60); // HUNTED band: lasers armed, cameras sweeping fast
+  world.giveLoot('gems'); // corridor gem case already in the bag
+  world.placePlayer(640, 196, Math.PI / 2); // at the north vault door, facing into the core
   world.setGuard(4, 740, 440, 0.8, 0.0, 'patrol'); // core guard, cone at the far wall
-  world.setGuard(0, 300, 120, 0, 0.0, 'patrol'); // top corridor guard
+  world.setGuard(0, 300, 120, 0, 0.0, 'patrol'); // top corridor guard, still short of him
   aimCamera(world, 0, -0.85); // top camera sweeping away from the core door
-  run(world, 66, CROUCH_HOLD); // crouched, hold E: the grab ring fills to about half
+  aimCamera(world, 1, 0.85); // bottom camera sweeping away from the core
+  aimCamera(world, 2, 0.85); // west camera sweeping south, off the thief
+  aimCamera(world, 3, -0.85); // east camera sweeping south, off the thief
+  run(world, 2, HOLD); // E held: the dial starts spinning for real
+  world.setVaultCrack(0, 2, 0.12); // two tumblers set, needle inside the green zone
   return { screen: SCREEN_PLAY, best: 6500, rating: null };
 }
 
@@ -111,6 +121,7 @@ function stageExtract(world) {
   world.loadLevel(0);
   world.setElapsed(184);
   world.setAlarm(12);
+  world.openVault(0); // the vault was cracked on the way through — the gold is his
   world.giveLoot('gems');
   world.giveLoot('gold');
   world.giveLoot('cash'); // $6,000 in the bag
@@ -127,7 +138,7 @@ function stageExtract(world) {
 
 export function stageShot(name, world) {
   if (name === 'camera') return stageCamera(world);
-  if (name === 'loot') return stageLoot(world);
+  if (name === 'crack' || name === 'loot') return stageCrack(world); // 'loot' kept as an alias
   if (name === 'extract') return stageExtract(world);
   return stageCover(world);
 }

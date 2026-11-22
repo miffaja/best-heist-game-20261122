@@ -5,7 +5,13 @@
 // CALM -> SUSPICIOUS -> HUNTED -> LOCKDOWN, speeding guards, arming laser tripwires and
 // slowing the getaway. Loot has weight: a heavy bag makes a slow thief. Escape means
 // standing at the van with loot in the bag and holding the extraction channel.
-import { ALARM, CAMERA, FIELD, GUARD, LOOT_KINDS, NOISE, PLAYER } from './config.js';
+//
+// VAULT-CRACKING: locked vault doors seal the best loot. At a door, HOLD E to spin the
+// combination dial (the thief stands still, exposed) and RELEASE E with the needle in
+// the green zone to set a tumbler. Three tumblers swing the door open; a release outside
+// the green jams the lock and raises the alarm. Progress on a door is kept if the thief
+// steps away and comes back.
+import { ALARM, CAMERA, FIELD, GUARD, LOOT_KINDS, NOISE, PLAYER, VAULT } from './config.js';
 import { LEVELS } from './levels.js';
 
 export const EVENT_LOOT = 1;
@@ -16,6 +22,9 @@ export const EVENT_CAMERA = 16;
 export const EVENT_COIN_LAND = 32;
 export const EVENT_ALARM_UP = 64;
 export const EVENT_GUARD_ALERT = 128;
+export const EVENT_VAULT_TUMBLER = 256; // a tumbler clicked into place
+export const EVENT_VAULT_FAIL = 512;    // a jammed release: alarm up
+export const EVENT_VAULT_OPEN = 1024;   // the vault door swung open
 
 /** Which escalation band an alarm value falls in (index into ALARM.levels). */
 export function alarmLevelIndex(alarm) {
@@ -121,6 +130,9 @@ export function createWorld(random) {
     levelIndex: 0,
     level: null,
     walls: [],
+    vaultDoors: [], // {x, y, blocker, open, tumblers, needle, greenCenter, spinning}
+    crackDoor: -1,  // index into vaultDoors the thief is cracking (or last cracked at), -1 = none
+    prevInteract: false,
     player: null,
     guards: [],
     cameras: [],
@@ -159,7 +171,18 @@ export function createWorld(random) {
     const level = LEVELS[index];
     state.levelIndex = index;
     state.level = level;
-    state.walls = level.walls;
+    // A copy: locked vault doors add their blocker slabs here, cracking removes them.
+    state.walls = level.walls.slice();
+    state.vaultDoors = (level.vaultDoors || []).map((d) => {
+      const blocker = { ...d.blocker };
+      state.walls.push(blocker);
+      return {
+        x: d.x, y: d.y, blocker, open: false, tumblers: 0,
+        needle: 0, greenCenter: random() * Math.PI * 2, spinning: false,
+      };
+    });
+    state.crackDoor = -1;
+    state.prevInteract = false;
     state.player = {
       x: level.spawn.x, y: level.spawn.y, angle: -Math.PI / 2,
       crouch: false, sprint: false, moving: false,
@@ -362,10 +385,23 @@ export function createWorld(random) {
     const prevX = p.x;
     const prevY = p.y;
 
+    // --- Vault-cracking target: the nearest LOCKED vault door in reach. While E is held
+    // at one, the dial spins and the thief stands still (willSpin locks movement below).
+    let nearDoor = -1;
+    let nearDoorDist = Infinity;
+    state.vaultDoors.forEach((door, i) => {
+      if (door.open) return;
+      const d = Math.hypot(door.x - p.x, door.y - p.y);
+      if (d < VAULT.crackRange && d < nearDoorDist) { nearDoor = i; nearDoorDist = d; }
+    });
+    const willSpin = !!input.interact && nearDoor >= 0;
+    if (willSpin) state.crackDoor = nearDoor;
+    else if (!input.interact && nearDoor < 0) state.crackDoor = -1; // walked away; tumblers persist
+
     // --- Thief movement: stance and bag weight set the speed. ---
     p.crouch = !!input.crouch;
     p.sprint = !!input.sprint && !p.crouch;
-    const len = Math.hypot(input.mx, input.my);
+    const len = willSpin ? 0 : Math.hypot(input.mx, input.my);
     p.moving = len > 0;
     const weightFactor = Math.max(PLAYER.minSpeedFactor, 1 - p.weight * PLAYER.weightSlowdown);
     const baseSpeed = p.crouch ? PLAYER.crouchSpeed : p.sprint ? PLAYER.sprintSpeed : PLAYER.walkSpeed;
@@ -427,7 +463,49 @@ export function createWorld(random) {
       }
     }
 
-    // --- Loot: hold interact beside a target; the bag fills and the thief slows. ---
+    // --- VAULT-CRACKING: hold E spins the dial; releasing E sets (or jams) a tumbler. ---
+    if (willSpin) {
+      const door = state.vaultDoors[state.crackDoor];
+      door.spinning = true;
+      door.needle = (door.needle + VAULT.needleSpeed * dt) % (Math.PI * 2);
+    } else if (!input.interact && state.prevInteract && state.crackDoor >= 0) {
+      const door = state.vaultDoors[state.crackDoor];
+      door.spinning = false;
+      if (!door.open) {
+        const off = Math.abs(angleDelta(door.greenCenter, door.needle));
+        if (off <= VAULT.greenHalf) {
+          door.tumblers += 1;
+          events.value |= EVENT_VAULT_TUMBLER;
+          burst(door.x, door.y, '#58dc9c', 10, 80);
+          if (door.tumblers >= VAULT.tumblers) {
+            door.open = true;
+            state.walls = state.walls.filter((w) => w !== door.blocker);
+            events.value |= EVENT_VAULT_OPEN;
+            floater(door.x, door.y - 30, 'VAULT OPEN!', '#58dc9c');
+            burst(door.x, door.y, '#f2c94c', 22, 130);
+          } else {
+            floater(door.x, door.y - 30, `TUMBLER SET! ${door.tumblers}/${VAULT.tumblers}`, '#58dc9c');
+            door.greenCenter = random() * Math.PI * 2; // next tumbler hides elsewhere
+          }
+        } else {
+          state.alarm = Math.min(ALARM.max, state.alarm + VAULT.wrongAlarm);
+          events.value |= EVENT_VAULT_FAIL;
+          floater(door.x, door.y - 30, 'VAULT JAMMED! +ALARM', '#ff4d5e');
+          burst(door.x, door.y, '#ff4d5e', 10, 90);
+        }
+      }
+    } else if (state.crackDoor >= 0) {
+      state.vaultDoors[state.crackDoor].spinning = false;
+    }
+    if (nearDoor >= 0 && !input.interact && state.hintCooldown <= 0) {
+      floater(p.x, p.y - 30, 'HOLD E — CRACK THE VAULT', '#f2c94c');
+      state.hintCooldown = 2.5;
+    }
+    state.prevInteract = !!input.interact;
+
+    // --- Loot: hold interact beside a target; the bag fills and the thief slows.
+    // (Skipped while the vault dial spins: E belongs to the lock then.) ---
+    if (!willSpin) {
     let nearLoot = null;
     for (const item of state.loot) {
       if (!item.taken && Math.hypot(item.x - p.x, item.y - p.y) < 36) { nearLoot = item; break; }
@@ -480,6 +558,7 @@ export function createWorld(random) {
     } else {
       p.extractProgress = Math.max(0, p.extractProgress - dt * 1.5);
     }
+    } // end !willSpin (loot + extraction)
     state.hintCooldown = Math.max(0, state.hintCooldown - dt);
 
     // --- Alarm cooling and escalation bookkeeping. ---
@@ -557,5 +636,26 @@ export function createWorld(random) {
       state.player.weight += item.weight;
     },
     setElapsed(seconds) { state.elapsed = seconds; },
+    /** Stage a vault-crack in progress: `tumblers` already set, needle `needleOffset` rad
+     *  from the green zone's centre (0 = dead centre), dial spinning with E held. */
+    setVaultCrack(doorIndex, tumblers, needleOffset) {
+      const door = state.vaultDoors[doorIndex];
+      if (!door) return;
+      door.tumblers = tumblers;
+      door.needle = (door.greenCenter + needleOffset + Math.PI * 2) % (Math.PI * 2);
+      door.spinning = true;
+      state.crackDoor = doorIndex;
+      state.prevInteract = true;
+    },
+    /** Swing a vault door open outright (staging / tests). */
+    openVault(doorIndex) {
+      const door = state.vaultDoors[doorIndex];
+      if (!door || door.open) return;
+      door.open = true;
+      door.tumblers = VAULT.tumblers;
+      door.spinning = false;
+      state.walls = state.walls.filter((w) => w !== door.blocker);
+      if (state.crackDoor === doorIndex) state.crackDoor = -1;
+    },
   };
 }
