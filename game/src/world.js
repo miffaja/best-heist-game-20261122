@@ -104,6 +104,8 @@ export function createWorld(random) {
       weight: 0, haul: 0, coins: PLAYER.coins,
       emp: TOOLS.empCharges, smoke: TOOLS.smokeCharges,
       grabProgress: 0, grabTarget: null, extractProgress: 0,
+      ventTransit: null, // {x1, y1, x2, y2, t} while crawling the duct between grates
+      ventEmerge: 0,     // seconds left climbing out of the far grate
     };
     state.vents = (level.vents || []).map((v) => ({ x: v.x, y: v.y }));
     state.ventTrail = null;
@@ -175,6 +177,7 @@ export function createWorld(random) {
   /** Can an observer at (x,y) facing `angle` see the thief right now? */
   function canSeeThief(x, y, angle, range, halfAngle) {
     const p = state.player;
+    if (p.ventTransit) return false; // inside the duct: nobody sees the thief crawl
     if (thiefInSmoke()) return false; // a smoke cloud hides the thief from everyone
     const dx = p.x - x;
     const dy = p.y - y;
@@ -323,14 +326,37 @@ export function createWorld(random) {
       const d = Math.hypot(door.x - p.x, door.y - p.y);
       if (d < VAULT.crackRange && d < nearDoorDist) { nearDoor = i; nearDoorDist = d; }
     });
-    const willSpin = !!input.interact && nearDoor >= 0;
+    const willSpin = !!input.interact && nearDoor >= 0 && !p.ventTransit && p.ventEmerge <= 0;
     if (willSpin) state.crackDoor = nearDoor;
     else if (!input.interact && nearDoor < 0) state.crackDoor = -1; // walked away; tumblers persist
+
+    // --- Vent transit: the crawl between grates, then the climb out. While the
+    // thief is inside the duct he cannot move, be seen, or trip anything; while
+    // he is emerging at the far grate he is stuck half-out of it — the gamble. ---
+    if (p.ventTransit) {
+      const tr = p.ventTransit;
+      tr.t += dt / VENT.transitSeconds;
+      if (tr.t >= 1) {
+        p.x = tr.x2;
+        p.y = tr.y2;
+        p.ventTransit = null;
+        p.ventEmerge = VENT.emergeSeconds;
+        burst(p.x, p.y, '#9fb4c8', 10, 60);
+        floater(p.x, p.y - 30, 'THROUGH THE VENT', '#cfe4f7', 26);
+      } else {
+        p.x = tr.x1 + (tr.x2 - tr.x1) * tr.t;
+        p.y = tr.y1 + (tr.y2 - tr.y1) * tr.t;
+      }
+    } else if (p.ventEmerge > 0) {
+      p.ventEmerge = Math.max(0, p.ventEmerge - dt);
+    }
+    const inVent = !!p.ventTransit;
+    const emerging = p.ventEmerge > 0;
 
     // --- Thief movement: stance and bag weight set the speed. ---
     p.crouch = !!input.crouch;
     p.sprint = !!input.sprint && !p.crouch;
-    const len = willSpin ? 0 : Math.hypot(input.mx, input.my);
+    const len = willSpin || inVent || emerging ? 0 : Math.hypot(input.mx, input.my);
     p.moving = len > 0;
     const weightFactor = Math.max(PLAYER.minSpeedFactor, 1 - p.weight * PLAYER.weightSlowdown);
     const baseSpeed = p.crouch ? PLAYER.crouchSpeed : p.sprint ? PLAYER.sprintSpeed : PLAYER.walkSpeed;
@@ -383,19 +409,18 @@ export function createWorld(random) {
       if (state.smokeClouds[i].life <= 0) state.smokeClouds.splice(i, 1);
     }
 
-    // --- Vents: tap E at a grate to slip to its pair (a second route past doors). ---
-    if (input.interact && !state.prevInteract && nearDoor < 0) {
+    // --- Vents: tap E at a grate to slip to its pair (a second route past doors).
+    // The slip starts a crawl: the thief travels the duct (unseen), then climbs
+    // out of the far grate. The duct path stays drawn so the route reads on screen. ---
+    if (input.interact && !state.prevInteract && nearDoor < 0 && !inVent && !emerging) {
       const vi = state.vents.findIndex((v) => Math.hypot(v.x - p.x, v.y - p.y) < VENT.useRange);
       if (vi >= 0) {
         const dest = state.vents[vi % 2 === 0 ? vi + 1 : vi - 1];
         if (dest) {
           burst(p.x, p.y, '#9fb4c8', 10, 60);
-          // The duct path stays drawn for a moment so the route taken reads on screen.
           state.ventTrail = { x1: p.x, y1: p.y, x2: dest.x, y2: dest.y, life: 2.6 };
-          p.x = dest.x;
-          p.y = dest.y;
-          burst(p.x, p.y, '#9fb4c8', 10, 60);
-          floater(p.x, p.y - 30, 'THROUGH THE VENT', '#cfe4f7', 26);
+          p.ventTransit = { x1: p.x, y1: p.y, x2: dest.x, y2: dest.y, t: 0 };
+          p.moving = false;
           events.value |= EVENT_VENT;
         }
       }
@@ -405,8 +430,10 @@ export function createWorld(random) {
     for (const guard of state.guards) stepGuard(guard, dt);
     for (const camera of state.cameras) stepCamera(camera, dt, events);
 
-    // --- Caught: a guard who has made the thief lays hands on them. ---
+    // --- Caught: a guard who has made the thief lays hands on them. (Not while
+    // the thief is inside a duct — there is nobody there to grab.) ---
     for (const guard of state.guards) {
+      if (inVent) break;
       const d = Math.hypot(guard.x - p.x, guard.y - p.y);
       if (d < GUARD.catchDistance && (guard.mode === 'chase' || guard.meter > 0.55)) {
         if (guard.mode !== 'chase') state.detections += 1; // walked into a guard who had made you
@@ -421,7 +448,7 @@ export function createWorld(random) {
     const lasersArmed = ALARM.levels[state.alarmLevel].lasersArmed && state.empTimer === 0;
     for (const laser of state.lasers) {
       laser.cooldown = Math.max(0, laser.cooldown - dt);
-      if (lasersArmed && laser.cooldown === 0 && (prevX !== p.x || prevY !== p.y)) {
+      if (!inVent && lasersArmed && laser.cooldown === 0 && (prevX !== p.x || prevY !== p.y)) {
         if (segmentsCross(prevX, prevY, p.x, p.y, laser.x1, laser.y1, laser.x2, laser.y2)) {
           state.alarm = Math.min(ALARM.max, state.alarm + ALARM.laserSpike);
           laser.cooldown = 3;
@@ -472,8 +499,9 @@ export function createWorld(random) {
     state.prevInteract = !!input.interact;
 
     // --- Loot: hold interact beside a target; the bag fills and the thief slows.
-    // (Skipped while the vault dial spins: E belongs to the lock then.) ---
-    if (!willSpin) {
+    // (Skipped while the vault dial spins: E belongs to the lock then. Skipped
+    // while crawling a duct or climbing out of a grate: hands are busy.) ---
+    if (!willSpin && !inVent && !emerging) {
     let nearLoot = null;
     for (const item of state.loot) {
       if (!item.taken && Math.hypot(item.x - p.x, item.y - p.y) < 36) { nearLoot = item; break; }
@@ -526,7 +554,7 @@ export function createWorld(random) {
     } else {
       p.extractProgress = Math.max(0, p.extractProgress - dt * 1.5);
     }
-    } // end !willSpin (loot + extraction)
+    } // end !willSpin && !inVent && !emerging (loot + extraction)
     state.hintCooldown = Math.max(0, state.hintCooldown - dt);
 
     // --- Alarm cooling and escalation bookkeeping. ---
@@ -627,6 +655,9 @@ export function createWorld(random) {
     setCameraJammed(index, jammed) { const c = state.cameras[index]; if (c) c.jammed = jammed; },
     /** Stage the vent-slip duct trail at full brightness (staging / tests). */
     setVentTrail(x1, y1, x2, y2) { state.ventTrail = { x1, y1, x2, y2, life: 1.8 }; },
+    /** Stage the thief mid-climb out of a grate (staging / tests): seconds of
+     *  emerge left, at the player's current position. */
+    setVentEmerge(seconds) { state.player.ventEmerge = seconds; },
     dropSmoke(x, y, life) { state.smokeClouds.push({ x, y, life }); },
     /** Swing a vault door open outright (staging / tests). */
     openVault(doorIndex) {

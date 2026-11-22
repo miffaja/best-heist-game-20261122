@@ -145,24 +145,23 @@ function stageCrack(world) {
 }
 
 /**
- * EXTRACT — the getaway payoff, on floor 2: the annex core cracked and emptied
- * ($14,000 in the bag), the thief vent-slips from the east corridor to the west
- * (duct trail + chevrons between the grates), fires the EMP jammer for the last
- * leg — every camera JAMMED with violet pulse rings, the doorway lasers dead
- * grey — and holds E at the GETAWAY VAN until the extraction completes. The
- * frame is the payoff moment itself: thief at the van, CLEAN GETAWAY banner
- * over live gameplay (haul secured + ghost rating), no report panel.
+ * EXTRACT — the bold route in, on floor 2: corridor loot in the bag ($5,000),
+ * the thief fires the EMP jammer (every camera JAMMED, doorway lasers dead
+ * grey) and slips the vent from the top corridor straight into the sealed
+ * vault core — and the frame catches him MID-CLIMB out of the core grate:
+ * duct band and chevrons bright behind him, slats swung open over his legs,
+ * the core's gold and star artifact waiting around him, the core guard's back
+ * turned. The vent route reads as USED, not labelled.
  */
 function stageExtract(world) {
   world.loadLevel(1);
   world.setElapsed(184);
   world.setAlarm(60); // HUNTED band: lasers would be armed — the EMP is what holds them dead
-  world.openVault(0); // the core was cracked on the way through — the gold is his
-  world.giveLoot('gold');
-  world.giveLoot('gold');
-  world.giveLoot('artifact');
-  world.giveLoot('gems'); // $14,000 in the bag, weight 9 of 10
-  // Guards held far off the west corridor, cones pointed away from the getaway line.
+  world.giveLoot('gems'); // corridor gem case (140,110)
+  world.giveLoot('cash'); // corridor cash (1140,110)
+  world.giveLoot('cash'); // corridor cash (1140,620)
+  world.giveLoot('gems'); // top-corridor gem case (640,160) — $5,000, weight 4
+  // Guards held off the vent line, cones pointed away from the core grate.
   world.setGuard(0, 640, 120, 0, 0.0, 'patrol'); // top corridor, cone east
   world.setGuard(1, 1130, 620, Math.PI, 0.0, 'patrol'); // bottom corridor, cone west (far east)
   world.state.guards[1].wpIndex = 1; // waypoint at his feet: scans in place, never walks at the van
@@ -176,26 +175,22 @@ function stageExtract(world) {
   world.state.guards[3].wpIndex = 1; // waypoint at his feet: scans in place
   world.state.guards[3].scanBase = Math.PI / 2;
   world.state.guards[3].lookTimer = 99;
-  world.setGuard(4, 640, 300, -Math.PI / 2, 0.0, 'patrol'); // inside the core, cone north
-  // Vent transit for real: tap E at the east corridor grate, slip to the west one.
-  world.placePlayer(1228, 360, Math.PI);
-  run(world, 1, HOLD); // the slip: duct trail + THROUGH THE VENT floater at the west grate
-  run(world, 8, MOVE_EAST); // step clear of the west wall first (the grate hugs it)
-  // Down the west corridor to the van, heavy bag and all.
-  for (let i = 0; i < 240 && world.state.player.y < 600; i += 1) {
-    world.step(STEP, { mx: 0.25, my: 1, interact: false, crouch: false, sprint: false });
-  }
-  // The EMP jammer fired for the getaway: cameras JAMMED, lasers dead, chip counting down.
+  world.setGuard(4, 520, 270, -Math.PI / 2, 0.0, 'patrol'); // inside the core, scanning the north racks
+  world.state.guards[4].wpIndex = 0; // waypoint at his feet: scans in place, back to the grate
+  world.state.guards[4].scanBase = -Math.PI / 2;
+  world.state.guards[4].lookTimer = 99;
+  // The EMP jammer fired for the infiltration, then the vent slip for real:
+  // tap E at the top-corridor grate, crawl the duct (unseen), climb out in the core.
   world.setTools(1, 2);
   world.fireEmp(6);
-  // Hold E at the van until the extraction channel completes — the payoff moment.
-  for (let i = 0; i < 300 && !world.state.extracted; i += 1) world.step(STEP, HOLD);
-  // Hold the evidence at full strength for the still: duct trail bright between
-  // the grates, both tool floaters up (the sim has stopped, so they hold).
-  world.setVentTrail(1228, 360, 52, 360);
-  // Big pill-backed floaters (size 26): the vent transit and the EMP window are
-  // the frame's two tool proofs — they must read in the extract thumbnail.
-  world.state.floaters.push({ x: 170, y: 296, text: 'THROUGH THE VENT', color: '#cfe4f7', life: 1.4, size: 26 });
+  world.placePlayer(300, 52, Math.PI / 2);
+  run(world, 1, HOLD); // the slip: the crawl begins
+  for (let i = 0; i < 240 && world.state.player.ventEmerge <= 0; i += 1) world.step(STEP, NEUTRAL);
+  run(world, 18); // half-way out of the core grate — the pose the frame wants
+  // Hold the duct evidence at full strength for the still.
+  world.setVentTrail(300, 52, 640, 452);
+  // The EMP proof as a big pill-backed floater (the sim's own THROUGH THE VENT
+  // floater fired as he reached the grate and is still up).
   world.state.floaters.push({ x: 208, y: 556, text: 'EMP — CAMERAS JAMMED!', color: '#b48ae8', life: 1.4, size: 26 });
   return { screen: SCREEN_PLAY, best: 14000, rating: world.ghostRating() };
 }

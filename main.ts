@@ -19,7 +19,8 @@
 // cover: thief mid-crossing, guard cones, cameras — two of them JAMMED under a
 // live EMP window — loot and the alarm meter in one frame; the rest show the
 // caught moment, the vault-cracking dial at 2/3 tumblers
-// on the Sky Vault, and the clean getaway).
+// on the Sky Vault, and the vent infiltration — the thief mid-climb out of the
+// grate inside the sealed core under a live EMP window).
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:

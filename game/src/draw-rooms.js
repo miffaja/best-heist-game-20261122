@@ -12,56 +12,100 @@ export function drawRoomFloor(ctx, room) {
   const x1 = room.x + room.w;
   const y1 = room.y + room.h;
   if (room.floor === 'marble') {
-    // Large polished tiles with faint veins — the lobby.
-    for (let ty = room.y; ty < y1; ty += 96) {
-      for (let tx = room.x; tx < x1; tx += 96) {
-        if ((((tx - room.x) / 96) + ((ty - room.y) / 96)) % 2 === 0) {
-          ctx.fillStyle = 'rgba(255,255,255,0.045)';
-          ctx.fillRect(tx, ty, 96, 96);
+    // Grand lobby marble: big polished slabs with veins, a gold inlay frame
+    // inside the room edge and a medallion ring — a bank's front hall with a
+    // red runner to the van (drawFloors), not a checkerboard.
+    for (let ty = room.y; ty < y1; ty += 128) {
+      for (let tx = room.x; tx < x1; tx += 128) {
+        if ((((tx - room.x) / 128) + ((ty - room.y) / 128)) % 2 === 0) {
+          ctx.fillStyle = 'rgba(255,255,255,0.05)';
+          ctx.fillRect(tx, ty, 128, 128);
         }
-        ctx.strokeStyle = 'rgba(200,215,235,0.10)';
+        ctx.strokeStyle = 'rgba(200,215,235,0.12)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        const vx = tx + 12 + hash2(tx, ty) * 60;
-        const vy = ty + 12 + hash2(ty, tx) * 60;
+        const vx = tx + 16 + hash2(tx, ty) * 80;
+        const vy = ty + 16 + hash2(ty, tx) * 80;
         ctx.moveTo(vx, vy);
-        ctx.lineTo(vx + 18 + hash2(tx * 3, ty) * 26, vy + 10 + hash2(tx, ty * 3) * 20);
-        ctx.lineTo(vx + 30 + hash2(tx * 5, ty) * 30, vy + 26 + hash2(tx, ty * 5) * 22);
+        ctx.lineTo(vx + 24 + hash2(tx * 3, ty) * 34, vy + 14 + hash2(tx, ty * 3) * 26);
+        ctx.lineTo(vx + 40 + hash2(tx * 5, ty) * 40, vy + 34 + hash2(tx, ty * 5) * 30);
         ctx.stroke();
       }
     }
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let x = room.x; x <= x1; x += 96) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
-    for (let y = room.y; y <= y1; y += 96) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
+    for (let x = room.x; x <= x1; x += 128) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
+    for (let y = room.y; y <= y1; y += 128) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
+    ctx.stroke();
+    // Gold inlay: a double frame just inside the walls + a medallion ring.
+    ctx.strokeStyle = 'rgba(232,178,58,0.35)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(room.x + 18, room.y + 18, room.w - 36, room.h - 36);
+    ctx.strokeStyle = 'rgba(232,178,58,0.18)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(room.x + 28, room.y + 28, room.w - 56, room.h - 56);
+    const mx = room.x + room.w * 0.62;
+    const my = room.y + room.h * 0.68;
+    ctx.strokeStyle = 'rgba(232,178,58,0.30)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(mx, my, 44, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(232,178,58,0.16)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(mx, my, 34, 0, Math.PI * 2);
     ctx.stroke();
   } else if (room.floor === 'carpet') {
-    // Woven diamond pattern — the gallery.
-    ctx.fillStyle = 'rgba(232,178,58,0.055)';
-    for (let ty = room.y + 16; ty < y1; ty += 32) {
-      for (let tx = room.x + 16; tx < x1; tx += 32) {
+    // Gallery parquet: basket-weave wood blocks in two warm tones, with a
+    // picture-frame inlay border and corner rosettes — a room that hangs art,
+    // not a woven diamond rug.
+    const cell = 48;
+    for (let ty = room.y; ty < y1; ty += cell) {
+      for (let tx = room.x; tx < x1; tx += cell) {
+        const horiz = (((tx - room.x) / cell) + ((ty - room.y) / cell)) % 2 === 0;
+        ctx.fillStyle = horiz ? 'rgba(255,205,140,0.075)' : 'rgba(0,0,0,0.10)';
+        ctx.fillRect(tx, ty, cell, cell);
+        ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(tx, ty - 7);
-        ctx.lineTo(tx + 7, ty);
-        ctx.lineTo(tx, ty + 7);
-        ctx.lineTo(tx - 7, ty);
-        ctx.closePath();
-        ctx.fill();
+        if (horiz) {
+          ctx.moveTo(tx, ty + cell / 3); ctx.lineTo(tx + cell, ty + cell / 3);
+          ctx.moveTo(tx, ty + (2 * cell) / 3); ctx.lineTo(tx + cell, ty + (2 * cell) / 3);
+        } else {
+          ctx.moveTo(tx + cell / 3, ty); ctx.lineTo(tx + cell / 3, ty + cell);
+          ctx.moveTo(tx + (2 * cell) / 3, ty); ctx.lineTo(tx + (2 * cell) / 3, ty + cell);
+        }
+        ctx.stroke();
       }
     }
-    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    for (let ty = room.y + 32; ty < y1; ty += 32) {
-      for (let tx = room.x + 32; tx < x1; tx += 32) ctx.fillRect(tx - 1.5, ty - 1.5, 3, 3);
+    ctx.strokeStyle = 'rgba(0,0,0,0.30)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = room.x; x <= x1; x += cell) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
+    for (let y = room.y; y <= y1; y += cell) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
+    ctx.stroke();
+    // Picture-frame inlay: a gold double border with corner rosettes.
+    ctx.strokeStyle = 'rgba(232,178,58,0.38)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(room.x + 16, room.y + 16, room.w - 32, room.h - 32);
+    ctx.strokeStyle = 'rgba(232,178,58,0.18)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(room.x + 25, room.y + 25, room.w - 50, room.h - 50);
+    ctx.fillStyle = 'rgba(232,178,58,0.45)';
+    for (const [rx, ry] of [[room.x + 16, room.y + 16], [x1 - 16, room.y + 16], [room.x + 16, y1 - 16], [x1 - 16, y1 - 16]]) {
+      ctx.beginPath();
+      ctx.arc(rx, ry, 5, 0, Math.PI * 2);
+      ctx.fill();
     }
   } else if (room.floor === 'steel') {
     // Riveted vault plates: big armoured slabs, gold seams, heavy corner bolts —
-    // the money rooms read as bank vault, not generic tile.
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    // the money rooms read as bank vault, not generic tile. (No checkerboard
+    // alternation: a bevel highlight per plate instead, so it reads as armour.)
+    ctx.fillStyle = 'rgba(255,255,255,0.035)';
     for (let ty = room.y; ty < y1; ty += 96) {
-      for (let tx = room.x; tx < x1; tx += 96) {
-        if ((((tx - room.x) / 96) + ((ty - room.y) / 96)) % 2 === 0) ctx.fillRect(tx, ty, 96, 96);
-      }
+      for (let tx = room.x; tx < x1; tx += 96) ctx.fillRect(tx, ty, 96, 10);
     }
     ctx.strokeStyle = 'rgba(232,178,58,0.16)';
     ctx.lineWidth = 2;
@@ -108,7 +152,7 @@ export function drawRoomFloor(ctx, room) {
     ctx.beginPath();
     ctx.rect(room.x + 6, room.y + 6, room.w - 12, room.h - 12);
     ctx.clip();
-    ctx.strokeStyle = 'rgba(242,201,76,0.30)';
+    ctx.strokeStyle = 'rgba(242,201,76,0.38)';
     ctx.lineWidth = 7;
     ctx.setLineDash([16, 12]);
     ctx.strokeRect(room.x + 12, room.y + 12, room.w - 24, room.h - 24);
@@ -158,24 +202,38 @@ export function drawRoomFloor(ctx, room) {
       ctx.stroke();
     }
   } else if (room.floor === 'wood') {
-    // Office floorboards with grain.
-    for (let ty = room.y; ty < y1; ty += 24) {
-      if (((ty - room.y) / 24) % 2 === 0) {
-        ctx.fillStyle = 'rgba(255,220,170,0.04)';
-        ctx.fillRect(room.x, ty, room.w, 24);
+    // Records office: muted carpet tiles in a checker of two greys, with a row
+    // of filing cabinets along the north wall — paper storage, not a ballroom.
+    const tile = 64;
+    for (let ty = room.y; ty < y1; ty += tile) {
+      for (let tx = room.x; tx < x1; tx += tile) {
+        if ((((tx - room.x) / tile) + ((ty - room.y) / tile)) % 2 === 0) {
+          ctx.fillStyle = 'rgba(150,175,205,0.07)';
+          ctx.fillRect(tx, ty, tile, tile);
+        }
       }
-      ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+    }
+    ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = room.x; x <= x1; x += tile) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
+    for (let y = room.y; y <= y1; y += tile) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
+    ctx.stroke();
+    // Filing cabinets: drawer fronts with handles along the north wall.
+    for (let cx = room.x + 14; cx + 56 <= x1 - 14; cx += 64) {
+      ctx.fillStyle = '#39424f';
+      ctx.fillRect(cx, room.y + 8, 56, 30);
+      ctx.strokeStyle = 'rgba(159,180,200,0.4)';
       ctx.lineWidth = 1;
+      ctx.strokeRect(cx + 0.5, room.y + 8.5, 55, 29);
       ctx.beginPath();
-      ctx.moveTo(room.x, ty);
-      ctx.lineTo(x1, ty);
+      ctx.moveTo(cx, room.y + 18); ctx.lineTo(cx + 56, room.y + 18);
+      ctx.moveTo(cx, room.y + 28); ctx.lineTo(cx + 56, room.y + 28);
       ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,220,170,0.07)';
-      ctx.beginPath();
-      const gy = ty + 6 + hash2(ty, room.x) * 12;
-      ctx.moveTo(room.x + hash2(room.x, ty) * 120, gy);
-      ctx.lineTo(room.x + 160 + hash2(ty * 3, room.x) * 220, gy);
-      ctx.stroke();
+      ctx.fillStyle = 'rgba(207,228,247,0.55)';
+      ctx.fillRect(cx + 22, room.y + 12, 12, 3);
+      ctx.fillRect(cx + 22, room.y + 22, 12, 3);
+      ctx.fillRect(cx + 22, room.y + 32, 12, 3);
     }
   } else {
     // Concrete slabs with expansion joints and faint stains — the annex.
@@ -230,14 +288,19 @@ export function drawFloors(ctx, state) {
     ctx.strokeStyle = 'rgba(232,178,58,0.45)';
     ctx.lineWidth = 3;
     ctx.strokeRect(458, 174, 368, 108);
-    ctx.fillStyle = 'rgba(46,74,120,0.45)';
-    ctx.fillRect(80, 180, 250, 150);
-    ctx.strokeStyle = 'rgba(159,180,200,0.35)';
-    ctx.strokeRect(86, 186, 238, 138);
-    // Woven diamond pattern so the lobby rug reads as a rug, not a blue slab.
-    ctx.fillStyle = 'rgba(207,228,247,0.10)';
-    for (let ry = 200; ry < 322; ry += 24) {
-      for (let rx = 102; rx < 322; rx += 24) {
+    // Lobby red-carpet runner: from the van's rear door up the marble hall.
+    ctx.fillStyle = 'rgba(122,46,58,0.55)';
+    ctx.fillRect(64, 210, 112, 390);
+    ctx.strokeStyle = 'rgba(232,178,58,0.5)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(70, 216, 100, 378);
+    ctx.strokeStyle = 'rgba(232,178,58,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(78, 224, 84, 362);
+    // Woven diamond pattern so the runner reads as carpet, not a red slab.
+    ctx.fillStyle = 'rgba(255,220,170,0.10)';
+    for (let ry = 240; ry < 580; ry += 24) {
+      for (let rx = 92; rx < 160; rx += 24) {
         ctx.beginPath();
         ctx.moveTo(rx, ry - 6);
         ctx.lineTo(rx + 6, ry);
@@ -247,9 +310,6 @@ export function drawFloors(ctx, state) {
         ctx.fill();
       }
     }
-    ctx.strokeStyle = 'rgba(232,178,58,0.30)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(98, 198, 214, 114);
   } else {
     ctx.fillStyle = 'rgba(122,46,58,0.4)';
     ctx.fillRect(470, 252, 340, 216);
@@ -261,8 +321,8 @@ export function drawFloors(ctx, state) {
   // The floor's name painted big on its open floor — each floor announces itself, so
   // a shrunken frame still says which of the three floors this is.
   if (state.level.banner) {
-    ctx.globalAlpha = 0.10;
-    text(ctx, state.level.banner.text, state.level.banner.x, state.level.banner.y, 46, '#cfe4f7', 'center', true);
+    ctx.globalAlpha = 0.06;
+    text(ctx, state.level.banner.text, state.level.banner.x, state.level.banner.y, 40, '#cfe4f7', 'center', true);
     ctx.globalAlpha = 1;
   }
   // Room nameplates, faint so they read as floor markings. Top rooms step below the

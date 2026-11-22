@@ -154,7 +154,7 @@ export function drawHud(ctx, state, best) {
       : 'Objective: grab loot with E · crack VAULT doors · escape at the van';
   text(ctx, objective, 26, FIELD.height - 36, 15, PALETTE.text, 'left');
   text(ctx, 'WASD move · Shift sprint · C crouch · E grab/crack/vent · Click coin · Q EMP · R smoke · P pause',
-    FIELD.width - 26, FIELD.height - 36, 13, PALETTE.muted, 'right');
+    FIELD.width - 26, FIELD.height - 36, 14, PALETTE.muted, 'right');
 
   // Alarm vignette pulse at HUNTED and above.
   if (state.alarmLevel >= 2) {
@@ -170,8 +170,8 @@ export function drawHud(ctx, state, best) {
 
 export function drawMinimap(ctx, state) {
   // Bottom-right, clear of every camera housing and label along the top wall.
-  const mw = 168;
-  const mh = 95;
+  const mw = 196;
+  const mh = 111;
   const mx = FIELD.width - mw - 14;
   const my = FIELD.height - mh - 54;
   const sx = mw / FIELD.width;
@@ -229,21 +229,18 @@ export function drawGetawayBanner(ctx, state, rating) {
   // Anchored right of the gadget chips so the EMP LIVE countdown stays readable.
   const x = 366;
   const width = FIELD.width - x - 26;
-  const height = 84;
+  const height = 64;
   const y = 88;
   ctx.fillStyle = 'rgba(11,20,16,0.92)';
   ctx.fillRect(x, y, width, height);
   ctx.strokeStyle = '#58dc9c';
   ctx.lineWidth = 3;
   ctx.strokeRect(x + 1, y + 1, width - 2, height - 2);
-  ctx.textBaseline = 'top';
+  ctx.textBaseline = 'middle';
+  // Headline + haul only, big: at thumbnail size a sub-line of small facts reads
+  // as none (the ghost rating and the rest live on the win report panel).
   text(ctx, `✓ CLEAN GETAWAY — HAUL SECURED $${state.player.haul.toLocaleString('en-US')}`,
-    x + width / 2, y + 10, 30, '#7de8a0', 'center', true);
-  // Sub-line kept to three big facts at 22px: rating, detections, time. (Peak
-  // alarm lives on the win report panel; at thumbnail size four facts at 16px
-  // read as none.)
-  text(ctx, `GHOST RATING: ${rating || '—'}  ·  ${state.detections} DETECTIONS  ·  TIME ${formatTime(state.elapsed)}`,
-    x + width / 2, y + 48, 22, PALETTE.text, 'center', true);
+    x + width / 2, y + height / 2 + 1, 34, '#7de8a0', 'center', true);
 }
 
 export function drawPanel(ctx, title, titleColor, lines, prompt, opts) {

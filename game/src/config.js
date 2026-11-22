@@ -88,10 +88,14 @@ export const TOOLS = {
 };
 
 /** VENTS: paired wall grates. Stand at one and tap E to slip through to its pair —
- *  a second route into rooms whose doors are watched. Slow and noisy enough that a
- *  guard standing at the far end still makes it a gamble. */
+ *  a second route into rooms whose doors are watched. The slip is not instant: the
+ *  thief crawls the duct for a moment (unseen inside the wall), then climbs out of
+ *  the far grate — slow and noisy enough that a guard standing at the far end still
+ *  makes it a gamble. */
 export const VENT = {
   useRange: 34,            // px from the grate centre where the slip is possible
+  transitSeconds: 1.1,     // crawling the duct between the paired grates
+  emergeSeconds: 0.6,      // climbing out of the far grate (cannot move)
 };
 
 /**

@@ -215,6 +215,8 @@ export function drawCameraLabels(ctx, state) {
     }
     // Keep pills clear of the HUD gadget chips (top-left, y 96–122).
     if (ly > 84 && ly < 134 && lx < 348) ly = 142;
+    // And clear of the minimap (bottom-right, x 1070–1266, y 555–666).
+    if (lx > 1040 && ly > 540 && ly < 680) lx = 1006;
     // And clear of the thief himself, so his YOU tag never eats the pill text.
     if (state.player && Math.abs(state.player.x - lx) < 76 && Math.abs(state.player.y - 34 - ly) < 30) ly -= 36;
     ctx.textBaseline = 'middle';
@@ -245,6 +247,42 @@ export function drawPlayer(ctx, state) {
   const a = p.angle;
   const px = Math.cos(a + Math.PI / 2);
   const py = Math.sin(a + Math.PI / 2);
+  // Inside the duct: a compact silhouette crawling the vent run — body and head
+  // only, riding on the duct band the vent trail draws beneath him.
+  if (p.ventTransit) {
+    const tr = p.ventTransit;
+    const ta = Math.atan2(tr.y2 - tr.y1, tr.x2 - tr.x1);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + 4, radius * 0.62, radius * 0.4, ta, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = PALETTE.player;
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, radius * 0.62, radius * 0.44, ta, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#e8b23a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Head + gold mask band, pointing along the duct.
+    ctx.fillStyle = '#d9a877';
+    ctx.beginPath();
+    ctx.arc(p.x + Math.cos(ta) * radius * 0.5, p.y + Math.sin(ta) * radius * 0.5, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = PALETTE.playerTrim;
+    ctx.beginPath();
+    ctx.arc(p.x + Math.cos(ta) * radius * 0.5, p.y + Math.sin(ta) * radius * 0.5, 9, ta - 1.15, ta + 1.15);
+    ctx.fill();
+    // The loot bag drags behind him in the duct.
+    ctx.fillStyle = PALETTE.playerBag;
+    ctx.beginPath();
+    ctx.arc(p.x - Math.cos(ta) * radius * 0.62, p.y - Math.sin(ta) * radius * 0.62, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#5c451c';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    drawYouTag(ctx, p, radius);
+    return;
+  }
   // Selection ring: solid gold + dashed outer, so the thief is findable in any frame.
   ctx.strokeStyle = `rgba(232,178,58,${(0.55 + 0.25 * Math.sin(state.elapsed * 4)).toFixed(3)})`;
   ctx.lineWidth = 2.5;
@@ -332,6 +370,34 @@ export function drawPlayer(ctx, state) {
   ctx.lineTo(p.x - Math.cos(a) * 6 - px * 6, p.y - Math.sin(a) * 6 - py * 6);
   ctx.closePath();
   ctx.fill();
+  // Climbing out of the grate: the open grate front rides over his lower body —
+  // slats swung wide, frame bright — so the vent route reads as USED, with the
+  // thief visibly half-out of the duct mouth.
+  if (p.ventEmerge > 0) {
+    const gx = p.x - 22;
+    const gy = p.y + 2;
+    ctx.fillStyle = PALETTE.vent;
+    ctx.fillRect(gx, gy, 44, 26);
+    ctx.strokeStyle = '#cfe4f7';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(gx + 0.5, gy + 0.5, 43, 25);
+    // Slats swung open: two bars angled up out of the frame.
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(gx + 4, gy + 8);
+    ctx.lineTo(gx + 20, gy - 6);
+    ctx.moveTo(gx + 40, gy + 8);
+    ctx.lineTo(gx + 24, gy - 6);
+    ctx.stroke();
+    ctx.strokeStyle = PALETTE.ventSlat;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(gx + 5, gy + 16);
+    ctx.lineTo(gx + 39, gy + 16);
+    ctx.moveTo(gx + 5, gy + 22);
+    ctx.lineTo(gx + 39, gy + 22);
+    ctx.stroke();
+  }
   if (p.crouch) {
     ctx.strokeStyle = 'rgba(159,180,200,0.85)';
     ctx.lineWidth = 2;
@@ -413,6 +479,11 @@ export function drawPlayer(ctx, state) {
     ctx.stroke();
   }
   // "YOU" marker with a pointer triangle — the thief must be obvious in every frame.
+  drawYouTag(ctx, p, radius);
+}
+
+/** The gold YOU tag over the thief, shared by the normal and in-duct poses. */
+function drawYouTag(ctx, p, radius) {
   const youY = p.y - radius - 34;
   ctx.font = `700 13px ${FONT}`;
   const youW = ctx.measureText('YOU').width + 16;
