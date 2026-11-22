@@ -1,7 +1,7 @@
 // Drawing the bank itself: room floors and materials, walls and furniture, set
 // dressing, patrol routes, vent grates, laser tripwires, loot targets and the
 // locked vault doors. Pure rendering — the simulation lives in world.js.
-import { ALARM, FIELD, FONT, PALETTE, VAULT } from './config.js';
+import { ALARM, FIELD, FONT, PALETTE, VAULT, VENT } from './config.js';
 import { hash2, text } from './draw-helpers.js';
 
 export function drawRoomFloor(ctx, room) {
@@ -55,23 +55,107 @@ export function drawRoomFloor(ctx, room) {
       for (let tx = room.x + 32; tx < x1; tx += 32) ctx.fillRect(tx - 1.5, ty - 1.5, 3, 3);
     }
   } else if (room.floor === 'steel') {
-    // Riveted vault plates.
-    ctx.strokeStyle = 'rgba(159,180,200,0.13)';
+    // Riveted vault plates: big armoured slabs, gold seams, heavy corner bolts —
+    // the money rooms read as bank vault, not generic tile.
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    for (let ty = room.y; ty < y1; ty += 96) {
+      for (let tx = room.x; tx < x1; tx += 96) {
+        if ((((tx - room.x) / 96) + ((ty - room.y) / 96)) % 2 === 0) ctx.fillRect(tx, ty, 96, 96);
+      }
+    }
+    ctx.strokeStyle = 'rgba(232,178,58,0.16)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    for (let x = room.x; x <= x1; x += 64) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
-    for (let y = room.y; y <= y1; y += 64) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
+    for (let x = room.x; x <= x1; x += 96) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
+    for (let y = room.y; y <= y1; y += 96) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
     ctx.stroke();
-    ctx.fillStyle = 'rgba(220,235,250,0.16)';
-    for (let ty = room.y; ty <= y1; ty += 64) {
-      for (let tx = room.x; tx <= x1; tx += 64) {
+    ctx.strokeStyle = 'rgba(159,180,200,0.20)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = room.x; x <= x1; x += 96) { ctx.moveTo(x + 3, room.y); ctx.lineTo(x + 3, y1); }
+    for (let y = room.y; y <= y1; y += 96) { ctx.moveTo(room.x, y + 3); ctx.lineTo(x1, y + 3); }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(220,235,250,0.22)';
+    for (let ty = room.y; ty <= y1; ty += 96) {
+      for (let tx = room.x; tx <= x1; tx += 96) {
         ctx.beginPath();
-        ctx.arc(tx + 7, ty + 7, 2.2, 0, Math.PI * 2);
-        ctx.arc(tx + 57, ty + 7, 2.2, 0, Math.PI * 2);
-        ctx.arc(tx + 7, ty + 57, 2.2, 0, Math.PI * 2);
-        ctx.arc(tx + 57, ty + 57, 2.2, 0, Math.PI * 2);
+        ctx.arc(tx + 10, ty + 10, 3, 0, Math.PI * 2);
+        ctx.arc(tx + 86, ty + 10, 3, 0, Math.PI * 2);
+        ctx.arc(tx + 10, ty + 86, 3, 0, Math.PI * 2);
+        ctx.arc(tx + 86, ty + 86, 3, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+  } else if (room.floor === 'service') {
+    // Service bay: scuffed concrete, hazard chevrons along the walls, painted
+    // walkway lines and floor drains — the working back-of-house, not a vault.
+    ctx.strokeStyle = 'rgba(0,0,0,0.30)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let x = room.x; x <= x1; x += 106) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
+    for (let y = room.y; y <= y1; y += 106) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.10)';
+    for (let i = 0; i < 8; i += 1) {
+      const sx = room.x + 40 + hash2(i * 31, room.y) * (room.w - 80);
+      const sy = room.y + 40 + hash2(room.x, i * 13) * (room.h - 80);
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, 24 + hash2(i, 3) * 36, 12 + hash2(3, i) * 18, hash2(i, i) * 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Hazard chevron band just inside the room edge.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(room.x + 6, room.y + 6, room.w - 12, room.h - 12);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(242,201,76,0.30)';
+    ctx.lineWidth = 7;
+    ctx.setLineDash([16, 12]);
+    ctx.strokeRect(room.x + 12, room.y + 12, room.w - 24, room.h - 24);
+    ctx.setLineDash([]);
+    ctx.restore();
+    // Painted walkway lines + drains.
+    ctx.strokeStyle = 'rgba(220,235,250,0.13)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(room.x + 30, room.y + room.h / 2);
+    ctx.lineTo(x1 - 30, room.y + room.h / 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    for (const [dx, dy] of [[0.3, 0.3], [0.7, 0.65]]) {
+      ctx.beginPath();
+      ctx.arc(room.x + room.w * dx, room.y + room.h * dy, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(159,180,200,0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  } else if (room.floor === 'server') {
+    // Penthouse raised-access floor: perforated dark tiles, cyan cable runs
+    // under the lanes — a server hall, not a bank vault.
+    ctx.strokeStyle = 'rgba(110,180,255,0.10)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = room.x; x <= x1; x += 48) { ctx.moveTo(x, room.y); ctx.lineTo(x, y1); }
+    for (let y = room.y; y <= y1; y += 48) { ctx.moveTo(room.x, y); ctx.lineTo(x1, y); }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    for (let ty = room.y + 12; ty < y1; ty += 48) {
+      for (let tx = room.x + 12; tx < x1; tx += 48) {
+        ctx.fillRect(tx, ty, 3, 3);
+        ctx.fillRect(tx + 12, ty, 3, 3);
+        ctx.fillRect(tx, ty + 12, 3, 3);
+        ctx.fillRect(tx + 12, ty + 12, 3, 3);
+      }
+    }
+    // Cable runs: paired cyan/magenta lines snaking the length of the floor.
+    for (const [off, col] of [[0.30, 'rgba(110,180,255,0.20)'], [0.34, 'rgba(232,120,200,0.14)'], [0.72, 'rgba(110,180,255,0.16)']]) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(room.x + 16, room.y + room.h * off);
+      ctx.lineTo(x1 - 16, room.y + room.h * off);
+      ctx.stroke();
     }
   } else if (room.floor === 'wood') {
     // Office floorboards with grain.
@@ -252,21 +336,51 @@ export function drawPatrolRoutes(ctx, state) {
 }
 
 export function drawVents(ctx, state) {
+  // The duct path of the last vent slip: a dashed run between the paired grates
+  // with chevrons showing the direction travelled, fading over ~2 seconds.
+  const trail = state.ventTrail;
+  if (trail) {
+    const alpha = Math.max(0, Math.min(1, trail.life / 1.8));
+    ctx.strokeStyle = `rgba(159,180,200,${(0.55 * alpha).toFixed(3)})`;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([9, 7]);
+    ctx.beginPath();
+    ctx.moveTo(trail.x1, trail.y1);
+    ctx.lineTo(trail.x2, trail.y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const ang = Math.atan2(trail.y2 - trail.y1, trail.x2 - trail.x1);
+    ctx.fillStyle = `rgba(207,228,247,${(0.8 * alpha).toFixed(3)})`;
+    for (const t of [0.3, 0.5, 0.7]) {
+      const cx = trail.x1 + (trail.x2 - trail.x1) * t;
+      const cy = trail.y1 + (trail.y2 - trail.y1) * t;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang) * 8, cy + Math.sin(ang) * 8);
+      ctx.lineTo(cx + Math.cos(ang + 2.5) * 7, cy + Math.sin(ang + 2.5) * 7);
+      ctx.lineTo(cx + Math.cos(ang - 2.5) * 7, cy + Math.sin(ang - 2.5) * 7);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
   for (const vent of state.vents || []) {
+    const inTrail = trail && ((vent.x === trail.x1 && vent.y === trail.y1) || (vent.x === trail.x2 && vent.y === trail.y2));
+    const nearPlayer = state.player && Math.hypot(vent.x - state.player.x, vent.y - state.player.y) < VENT.useRange;
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.beginPath();
     ctx.ellipse(vent.x, vent.y + 13, 20, 6, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = PALETTE.vent;
     ctx.fillRect(vent.x - 17, vent.y - 17, 34, 34);
-    ctx.strokeStyle = PALETTE.ventSlat;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = inTrail || nearPlayer ? '#cfe4f7' : PALETTE.ventSlat;
+    ctx.lineWidth = inTrail || nearPlayer ? 3 : 2;
     ctx.strokeRect(vent.x - 17, vent.y - 17, 34, 34);
+    // Slats swing open on the grate the thief just slipped through.
+    const slatShift = inTrail ? 3 : 0;
     ctx.lineWidth = 3;
     ctx.beginPath();
     for (let i = -1; i <= 1; i += 1) {
-      ctx.moveTo(vent.x - 12, vent.y + i * 9);
-      ctx.lineTo(vent.x + 12, vent.y + i * 9);
+      ctx.moveTo(vent.x - 12, vent.y + i * 9 - slatShift);
+      ctx.lineTo(vent.x + 12, vent.y + i * 9 + slatShift);
     }
     ctx.stroke();
     ctx.textBaseline = 'middle';
@@ -490,7 +604,8 @@ export function drawProps(ctx, state) {
 }
 
 export function drawLasers(ctx, state) {
-  const armed = ALARM.levels[state.alarmLevel].lasersArmed && state.empTimer === 0;
+  const empDead = state.empTimer > 0;
+  const armed = ALARM.levels[state.alarmLevel].lasersArmed && !empDead;
   for (const laser of state.lasers) {
     if (armed) {
       // Glow halo + white-hot core so an armed tripwire reads even shrunk to a thumbnail.
@@ -512,6 +627,30 @@ export function drawLasers(ctx, state) {
       ctx.moveTo(laser.x1, laser.y1);
       ctx.lineTo(laser.x2, laser.y2);
       ctx.stroke();
+    } else if (empDead) {
+      // EMP-killed tripwire: grey dead beam, violet emitters spitting sparks —
+      // visibly OFF, not merely unarmed.
+      ctx.strokeStyle = 'rgba(147,160,180,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 6]);
+      ctx.beginPath();
+      ctx.moveTo(laser.x1, laser.y1);
+      ctx.lineTo(laser.x2, laser.y2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const spark = hash2(Math.floor(state.elapsed * 6), laser.x1 + laser.y1) > 0.45;
+      if (spark) {
+        ctx.strokeStyle = 'rgba(180,138,232,0.9)';
+        ctx.lineWidth = 1.5;
+        for (const [ex, ey] of [[laser.x1, laser.y1], [laser.x2, laser.y2]]) {
+          ctx.beginPath();
+          ctx.moveTo(ex - 5, ey - 6);
+          ctx.lineTo(ex + 1, ey - 1);
+          ctx.lineTo(ex - 2, ey + 2);
+          ctx.lineTo(ex + 5, ey + 6);
+          ctx.stroke();
+        }
+      }
     } else {
       ctx.strokeStyle = 'rgba(255,77,94,0.3)';
       ctx.lineWidth = 1.5;
@@ -525,7 +664,7 @@ export function drawLasers(ctx, state) {
     ctx.fillStyle = '#39424f';
     ctx.fillRect(laser.x1 - 5, laser.y1 - 5, 10, 10);
     ctx.fillRect(laser.x2 - 5, laser.y2 - 5, 10, 10);
-    ctx.fillStyle = armed ? PALETTE.laser : '#6b7686';
+    ctx.fillStyle = armed ? PALETTE.laser : empDead ? PALETTE.emp : '#6b7686';
     ctx.beginPath();
     ctx.arc(laser.x1, laser.y1, 2.5, 0, Math.PI * 2);
     ctx.arc(laser.x2, laser.y2, 2.5, 0, Math.PI * 2);

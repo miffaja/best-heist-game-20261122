@@ -129,6 +129,18 @@ export function drawCameras(ctx, state) {
     ctx.beginPath();
     ctx.arc(hx, hy, 34, camera.baseAngle - CAMERA.sweepHalfAngle, camera.baseAngle + CAMERA.sweepHalfAngle);
     ctx.stroke();
+    // EMP pulse rings: a jammed camera visibly broadcasts its own death — two
+    // violet rings expanding from the housing on a loop while the window lasts.
+    if (camera.jammed) {
+      for (const off of [0, 0.5]) {
+        const phase = (state.elapsed * 0.9 + off) % 1;
+        ctx.strokeStyle = `rgba(180,138,232,${(0.7 * (1 - phase)).toFixed(3)})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(hx, hy, 16 + phase * 34, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
     // Wall mount arm from the mount point to the housing.
     ctx.strokeStyle = '#5a6a86';
     ctx.lineWidth = 5;
@@ -140,15 +152,15 @@ export function drawCameras(ctx, state) {
     ctx.beginPath();
     ctx.arc(camera.x, camera.y, 6, 0, Math.PI * 2);
     ctx.fill();
-    // Housing: a big rounded box rotated to the sweep angle.
+    // Housing: a big rounded box rotated to the sweep angle (greyed out while jammed).
     ctx.save();
     ctx.translate(hx, hy);
     ctx.rotate(a);
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fillRect(-13, -8, 30, 20);
-    ctx.fillStyle = '#d7e3ef';
+    ctx.fillStyle = camera.jammed ? '#6b7686' : '#d7e3ef';
     ctx.fillRect(-14, -10, 30, 20);
-    ctx.fillStyle = '#8fa8c0';
+    ctx.fillStyle = camera.jammed ? '#4a5468' : '#8fa8c0';
     ctx.fillRect(-14, -10, 30, 5);
     ctx.strokeStyle = '#10141c';
     ctx.lineWidth = 2;
@@ -162,13 +174,25 @@ export function drawCameras(ctx, state) {
     ctx.beginPath();
     ctx.arc(14, 0, 5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.beginPath();
-    ctx.arc(12.5, -1.5, 1.8, 0, Math.PI * 2);
-    ctx.fill();
+    if (camera.jammed) {
+      // Violet X over the dead lens.
+      ctx.strokeStyle = '#b48ae8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(10, -4);
+      ctx.lineTo(18, 4);
+      ctx.moveTo(18, -4);
+      ctx.lineTo(10, 4);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.beginPath();
+      ctx.arc(12.5, -1.5, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
-    // REC dot: blinks, solid red while the thief is in frame.
-    const on = camera.seeing || Math.floor(state.elapsed * 2) % 2 === 0;
+    // REC dot: blinks, solid red while the thief is in frame, dark while jammed.
+    const on = !camera.jammed && (camera.seeing || Math.floor(state.elapsed * 2) % 2 === 0);
     ctx.fillStyle = on ? '#ff4d5e' : '#5a2b30';
     ctx.beginPath();
     ctx.arc(hx - Math.cos(camera.baseAngle) * 8, hy - Math.sin(camera.baseAngle) * 8 - 12, 4, 0, Math.PI * 2);
@@ -190,6 +214,8 @@ export function drawCameraLabels(ctx, state) {
     }
     // Keep pills clear of the HUD gadget chips (top-left, y 96–122).
     if (ly > 84 && ly < 134 && lx < 348) ly = 142;
+    // And clear of the thief himself, so his YOU tag never eats the pill text.
+    if (state.player && Math.abs(state.player.x - lx) < 76 && Math.abs(state.player.y - 34 - ly) < 30) ly -= 36;
     ctx.textBaseline = 'middle';
     ctx.font = `700 ${camera.jammed ? 13 : 12}px ${FONT}`;
     const pillText = camera.jammed ? 'JAMMED' : 'CAMERA';

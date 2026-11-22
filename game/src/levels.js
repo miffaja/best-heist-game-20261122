@@ -55,7 +55,7 @@ const groundFloor = {
     { x: 416, y: 24, w: 444, h: 416, tint: 'floorGallery', label: 'GALLERY', floor: 'carpet' },
     { x: 876, y: 24, w: 380, h: 416, tint: 'floorVault', label: 'VAULT', floor: 'steel' },
     { x: 416, y: 456, w: 444, h: 240, tint: 'floorOffice', label: 'RECORDS OFFICE', floor: 'wood' },
-    { x: 876, y: 456, w: 380, h: 240, tint: 'floorVault', label: 'SERVICE', floor: 'steel' },
+    { x: 876, y: 456, w: 380, h: 240, tint: 'floorVault', label: 'SERVICE', floor: 'service' },
   ],
   // Decorative set dressing (no collision): statues, gem cases, the security desk, trees.
   props: [
@@ -237,7 +237,7 @@ const skyVault = {
   spawn: { x: 110, y: 630 },
   extract: { x: 36, y: 592, w: 150, h: 92 },
   rooms: [
-    { x: 24, y: 24, w: 1232, h: 672, tint: 'floorSky', label: 'SERVER FLOOR', floor: 'steel' },
+    { x: 24, y: 24, w: 1232, h: 672, tint: 'floorSky', label: 'SERVER FLOOR', floor: 'server' },
     { x: 876, y: 180, w: 380, h: 360, tint: 'floorVault', label: 'DATA CORE', floor: 'steel' },
   ],
   props: [

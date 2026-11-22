@@ -47,6 +47,7 @@ export function createWorld(random) {
     floaters: [],   // {x, y, text, life} rising labels ("+$2,000", "BAG FULL")
     coinsInFlight: [],
     vents: [],      // paired wall grates from the level (index pairs 0<->1, 2<->3)
+    ventTrail: null, // {x1, y1, x2, y2, life} — the duct path of the last vent slip, fading
     smokeClouds: [], // {x, y, life} — sight is blocked inside a cloud
     empTimer: 0,    // >0 while the EMP jammer holds cameras + lasers dead
     alarm: 0,
@@ -72,7 +73,9 @@ export function createWorld(random) {
   }
 
   function floater(x, y, text, color) {
-    state.floaters.push({ x, y, text, color, life: 1.4 });
+    // Keep labels inside the field so edge events (west-wall vents, the van) stay readable.
+    const cx = Math.max(110, Math.min(FIELD.width - 110, x));
+    state.floaters.push({ x: cx, y, text, color, life: 1.4 });
   }
 
   function loadLevel(index) {
@@ -99,6 +102,7 @@ export function createWorld(random) {
       grabProgress: 0, grabTarget: null, extractProgress: 0,
     };
     state.vents = (level.vents || []).map((v) => ({ x: v.x, y: v.y }));
+    state.ventTrail = null;
     state.smokeClouds = [];
     state.empTimer = 0;
     state.guards = level.guards.map((g) => ({
@@ -382,6 +386,8 @@ export function createWorld(random) {
         const dest = state.vents[vi % 2 === 0 ? vi + 1 : vi - 1];
         if (dest) {
           burst(p.x, p.y, '#9fb4c8', 10, 60);
+          // The duct path stays drawn for a moment so the route taken reads on screen.
+          state.ventTrail = { x1: p.x, y1: p.y, x2: dest.x, y2: dest.y, life: 1.8 };
           p.x = dest.x;
           p.y = dest.y;
           burst(p.x, p.y, '#9fb4c8', 10, 60);
@@ -557,6 +563,10 @@ export function createWorld(random) {
       f.life -= dt;
       f.y -= 22 * dt;
       if (f.life <= 0) state.floaters.splice(i, 1);
+    }
+    if (state.ventTrail) {
+      state.ventTrail.life -= dt;
+      if (state.ventTrail.life <= 0) state.ventTrail = null;
     }
     return events.value;
   }
