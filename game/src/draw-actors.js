@@ -131,13 +131,14 @@ export function drawCameras(ctx, state) {
     ctx.stroke();
     // EMP pulse rings: a jammed camera visibly broadcasts its own death — two
     // violet rings expanding from the housing on a loop while the window lasts.
+    // Sized to read at contact-sheet thumbnail scale, not just full-size.
     if (camera.jammed) {
       for (const off of [0, 0.5]) {
         const phase = (state.elapsed * 0.9 + off) % 1;
-        ctx.strokeStyle = `rgba(180,138,232,${(0.7 * (1 - phase)).toFixed(3)})`;
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = `rgba(180,138,232,${(0.85 * (1 - phase)).toFixed(3)})`;
+        ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(hx, hy, 16 + phase * 34, 0, Math.PI * 2);
+        ctx.arc(hx, hy, 18 + phase * 44, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
@@ -217,17 +218,21 @@ export function drawCameraLabels(ctx, state) {
     // And clear of the thief himself, so his YOU tag never eats the pill text.
     if (state.player && Math.abs(state.player.x - lx) < 76 && Math.abs(state.player.y - 34 - ly) < 30) ly -= 36;
     ctx.textBaseline = 'middle';
-    ctx.font = `700 ${camera.jammed ? 13 : 12}px ${FONT}`;
+    // JAMMED gets the biggest pill on the field: the EMP's proof must survive
+    // shrinking to a contact-sheet thumbnail. CAMERA stays a notch smaller.
+    const fontSize = camera.jammed ? 16 : 13;
+    const pillH = camera.jammed ? 26 : 22;
+    ctx.font = `700 ${fontSize}px ${FONT}`;
     const pillText = camera.jammed ? 'JAMMED' : 'CAMERA';
-    const labelW = ctx.measureText(pillText).width + (camera.jammed ? 18 : 14);
-    ctx.fillStyle = camera.jammed ? 'rgba(58,38,84,0.92)' : camera.seeing ? 'rgba(90,20,28,0.9)' : 'rgba(11,14,20,0.85)';
-    ctx.fillRect(lx - labelW / 2, ly - 10, labelW, 20);
+    const labelW = ctx.measureText(pillText).width + (camera.jammed ? 22 : 16);
+    ctx.fillStyle = camera.jammed ? 'rgba(58,38,84,0.95)' : camera.seeing ? 'rgba(90,20,28,0.9)' : 'rgba(11,14,20,0.85)';
+    ctx.fillRect(lx - labelW / 2, ly - pillH / 2, labelW, pillH);
     ctx.strokeStyle = camera.jammed ? PALETTE.emp : camera.seeing ? '#ff4d5e' : '#6eb4ff';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(lx - labelW / 2 + 0.5, ly - 9.5, labelW - 1, 19);
-    text(ctx, pillText, lx, ly + 1, 12, camera.jammed ? '#e2ccff' : camera.seeing ? '#ffb3ba' : '#cfe4f7', 'center', true);
+    ctx.lineWidth = camera.jammed ? 2.5 : 1.5;
+    ctx.strokeRect(lx - labelW / 2 + 0.5, ly - pillH / 2 + 0.5, labelW - 1, pillH - 1);
+    text(ctx, pillText, lx, ly + 1, fontSize, camera.jammed ? '#e2ccff' : camera.seeing ? '#ffb3ba' : '#cfe4f7', 'center', true);
     if (camera.seeing) {
-      text(ctx, '● REC', lx, ly + 20, 11, '#ff4d5e', 'center', true);
+      text(ctx, '● REC', lx, ly + pillH / 2 + 10, 11, '#ff4d5e', 'center', true);
     }
   }
 }
@@ -505,7 +510,7 @@ export function drawEffects(ctx, state) {
   ctx.textBaseline = 'bottom';
   for (const f of state.floaters) {
     ctx.globalAlpha = Math.min(1, f.life);
-    text(ctx, f.text, f.x, f.y, 16, f.color, 'center', true);
+    text(ctx, f.text, f.x, f.y, 18, f.color, 'center', true);
   }
   ctx.globalAlpha = 1;
 }

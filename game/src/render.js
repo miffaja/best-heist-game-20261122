@@ -19,7 +19,7 @@ import {
   drawCameraLabels, drawCameras, drawEffects, drawGuards, drawPlayer, drawSmoke,
 } from './draw-actors.js';
 import {
-  SCREEN_OVER, SCREEN_PAUSED, SCREEN_TITLE, SCREEN_WIN, drawHud, drawPanel,
+  SCREEN_OVER, SCREEN_PAUSED, SCREEN_TITLE, SCREEN_WIN, drawGetawayBanner, drawHud, drawPanel,
 } from './draw-hud.js';
 
 export { SCREEN_OVER, SCREEN_PAUSED, SCREEN_PLAY, SCREEN_TITLE, SCREEN_WIN } from './draw-hud.js';
@@ -114,6 +114,9 @@ export function createRenderer(canvas) {
       ], next);
     } else {
       drawHud(ctx, state, best);
+      // The extraction just completed: the payoff banner rides over the live
+      // frame (the full report panel follows on the win screen).
+      if (state.extracted) drawGetawayBanner(ctx, state, rating);
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }

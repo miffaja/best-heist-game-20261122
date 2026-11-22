@@ -337,27 +337,28 @@ export function drawPatrolRoutes(ctx, state) {
 
 export function drawVents(ctx, state) {
   // The duct path of the last vent slip: a dashed run between the paired grates
-  // with chevrons showing the direction travelled, fading over ~2 seconds.
+  // with chevrons showing the direction travelled, fading over ~2.6 seconds.
+  // Drawn fat and bright so the transit reads at thumbnail size.
   const trail = state.ventTrail;
   if (trail) {
     const alpha = Math.max(0, Math.min(1, trail.life / 1.8));
-    ctx.strokeStyle = `rgba(159,180,200,${(0.55 * alpha).toFixed(3)})`;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([9, 7]);
+    ctx.strokeStyle = `rgba(159,180,200,${(0.85 * alpha).toFixed(3)})`;
+    ctx.lineWidth = 5;
+    ctx.setLineDash([12, 8]);
     ctx.beginPath();
     ctx.moveTo(trail.x1, trail.y1);
     ctx.lineTo(trail.x2, trail.y2);
     ctx.stroke();
     ctx.setLineDash([]);
     const ang = Math.atan2(trail.y2 - trail.y1, trail.x2 - trail.x1);
-    ctx.fillStyle = `rgba(207,228,247,${(0.8 * alpha).toFixed(3)})`;
-    for (const t of [0.3, 0.5, 0.7]) {
+    ctx.fillStyle = `rgba(207,228,247,${(0.95 * alpha).toFixed(3)})`;
+    for (const t of [0.2, 0.35, 0.5, 0.65, 0.8]) {
       const cx = trail.x1 + (trail.x2 - trail.x1) * t;
       const cy = trail.y1 + (trail.y2 - trail.y1) * t;
       ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(ang) * 8, cy + Math.sin(ang) * 8);
-      ctx.lineTo(cx + Math.cos(ang + 2.5) * 7, cy + Math.sin(ang + 2.5) * 7);
-      ctx.lineTo(cx + Math.cos(ang - 2.5) * 7, cy + Math.sin(ang - 2.5) * 7);
+      ctx.moveTo(cx + Math.cos(ang) * 13, cy + Math.sin(ang) * 13);
+      ctx.lineTo(cx + Math.cos(ang + 2.5) * 11, cy + Math.sin(ang + 2.5) * 11);
+      ctx.lineTo(cx + Math.cos(ang - 2.5) * 11, cy + Math.sin(ang - 2.5) * 11);
       ctx.closePath();
       ctx.fill();
     }
@@ -384,14 +385,14 @@ export function drawVents(ctx, state) {
     }
     ctx.stroke();
     ctx.textBaseline = 'middle';
-    ctx.font = `700 10px ${FONT}`;
-    const labelW = ctx.measureText('VENT').width + 12;
+    ctx.font = `700 12px ${FONT}`;
+    const labelW = ctx.measureText('VENT').width + 14;
     ctx.fillStyle = 'rgba(11,14,20,0.88)';
-    ctx.fillRect(vent.x - labelW / 2, vent.y + 20, labelW, 16);
+    ctx.fillRect(vent.x - labelW / 2, vent.y + 20, labelW, 20);
     ctx.strokeStyle = PALETTE.ventSlat;
     ctx.lineWidth = 1;
-    ctx.strokeRect(vent.x - labelW / 2 + 0.5, vent.y + 20.5, labelW - 1, 15);
-    text(ctx, 'VENT', vent.x, vent.y + 29, 10, '#cfe4f7', 'center', true);
+    ctx.strokeRect(vent.x - labelW / 2 + 0.5, vent.y + 20.5, labelW - 1, 19);
+    text(ctx, 'VENT', vent.x, vent.y + 31, 12, '#cfe4f7', 'center', true);
   }
 }
 

@@ -37,7 +37,10 @@ function aimCamera(world, index, offset) {
  * toward a gem case, heavy bag on his back, a coin arcing toward the gallery guard who
  * is already investigating the first coin ("?" up), cameras sweeping overhead with their
  * cones pointed away, loot on the vault racks, and the alarm meter at SUSPICIOUS.
- * The thief is in NO cone: he reads as crossing, not caught.
+ * The thief is in NO cone: he reads as crossing, not caught. Both tools are proven
+ * IN EFFECT in this one frame: the smoke cloud hangs on the crossing, and the EMP
+ * jammer is LIVE — the gallery and vault cameras wear big JAMMED pills with violet
+ * pulse rings while the lobby and office cameras still sweep.
  */
 function stageCover(world) {
   world.loadLevel(0);
@@ -78,6 +81,14 @@ function stageCover(world) {
   world.setAlarm(45);
   world.state.floaters = world.state.floaters.filter((f) => f.text === 'SMOKE!');
   run(world, 1);
+  // The EMP jammer fired to cover the crossing: the chip counts down (EMP LIVE
+  // 5.2s) and the two cameras watching the gallery/vault lanes are JAMMED — big
+  // violet pills, pulse rings, dead lenses — while the lobby and office cameras
+  // still sweep, so the frame keeps live camera cones AND the tool in effect.
+  world.setTools(1, 1);
+  world.fireEmp(5.2);
+  world.setCameraJammed(0, false); // lobby camera still sweeping
+  world.setCameraJammed(3, false); // office camera still sweeping
   return { screen: SCREEN_PLAY, best: 6500, rating: null };
 }
 
@@ -134,11 +145,13 @@ function stageCrack(world) {
 }
 
 /**
- * EXTRACT — the getaway in motion, on floor 2: the annex core cracked and emptied
- * ($14,000 in the bag), the EMP jammer LIVE — every camera JAMMED with violet pulse
- * rings, the doorway lasers dead grey — and the thief mid-vent-slip, emerging from
- * the west corridor grate (duct trail still drawn to the east grate he came from)
- * on his way to the van. Pure gameplay: tools proven in effect, no report panel.
+ * EXTRACT — the getaway payoff, on floor 2: the annex core cracked and emptied
+ * ($14,000 in the bag), the thief vent-slips from the east corridor to the west
+ * (duct trail + chevrons between the grates), fires the EMP jammer for the last
+ * leg — every camera JAMMED with violet pulse rings, the doorway lasers dead
+ * grey — and holds E at the GETAWAY VAN until the extraction completes. The
+ * frame is the payoff moment itself: thief at the van, CLEAN GETAWAY banner
+ * over live gameplay (haul secured + ghost rating), no report panel.
  */
 function stageExtract(world) {
   world.loadLevel(1);
@@ -152,6 +165,9 @@ function stageExtract(world) {
   // Guards held far off the west corridor, cones pointed away from the getaway line.
   world.setGuard(0, 640, 120, 0, 0.0, 'patrol'); // top corridor, cone east
   world.setGuard(1, 1130, 620, Math.PI, 0.0, 'patrol'); // bottom corridor, cone west (far east)
+  world.state.guards[1].wpIndex = 1; // waypoint at his feet: scans in place, never walks at the van
+  world.state.guards[1].scanBase = Math.PI;
+  world.state.guards[1].lookTimer = 99;
   world.setGuard(2, 150, 120, 0, 0.0, 'patrol'); // west guard pulled north, cone east
   world.state.guards[2].wpIndex = 0; // waypoint at his feet: scans in place, never walks at the thief
   world.state.guards[2].scanBase = 0;
@@ -161,16 +177,25 @@ function stageExtract(world) {
   world.state.guards[3].scanBase = Math.PI / 2;
   world.state.guards[3].lookTimer = 99;
   world.setGuard(4, 640, 300, -Math.PI / 2, 0.0, 'patrol'); // inside the core, cone north
-  // The EMP jammer fired for the getaway: cameras JAMMED, lasers dead, chip counting down.
-  world.setTools(1, 2);
-  world.fireEmp(6);
-  world.state.floaters.push({ x: 150, y: 300, text: 'EMP — CAMERAS JAMMED!', color: '#b48ae8', life: 1.4 });
   // Vent transit for real: tap E at the east corridor grate, slip to the west one.
   world.placePlayer(1228, 360, Math.PI);
   run(world, 1, HOLD); // the slip: duct trail + THROUGH THE VENT floater at the west grate
   run(world, 8, MOVE_EAST); // step clear of the west wall first (the grate hugs it)
-  run(world, 42, { mx: 0.5, my: 1, interact: false, crouch: false, sprint: false }); // mid-stride to the van
-  return { screen: SCREEN_PLAY, best: 14000, rating: null };
+  // Down the west corridor to the van, heavy bag and all.
+  for (let i = 0; i < 240 && world.state.player.y < 600; i += 1) {
+    world.step(STEP, { mx: 0.25, my: 1, interact: false, crouch: false, sprint: false });
+  }
+  // The EMP jammer fired for the getaway: cameras JAMMED, lasers dead, chip counting down.
+  world.setTools(1, 2);
+  world.fireEmp(6);
+  // Hold E at the van until the extraction channel completes — the payoff moment.
+  for (let i = 0; i < 300 && !world.state.extracted; i += 1) world.step(STEP, HOLD);
+  // Hold the evidence at full strength for the still: duct trail bright between
+  // the grates, both tool floaters up (the sim has stopped, so they hold).
+  world.setVentTrail(1228, 360, 52, 360);
+  world.state.floaters.push({ x: 150, y: 300, text: 'THROUGH THE VENT', color: '#cfe4f7', life: 1.4 });
+  world.state.floaters.push({ x: 150, y: 560, text: 'EMP — CAMERAS JAMMED!', color: '#b48ae8', life: 1.4 });
+  return { screen: SCREEN_PLAY, best: 14000, rating: world.ghostRating() };
 }
 
 export function stageShot(name, world) {

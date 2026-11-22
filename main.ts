@@ -16,8 +16,9 @@
 // tumblers to swing it open (a jammed release raises the alarm). Tools at a cost:
 // distraction coins, an EMP jammer that kills cameras and lasers, and smoke bombs
 // that block sight. Screenshots live in screenshots/ (the first by name is the
-// cover: thief mid-crossing, guard cones, cameras, loot and the alarm meter in one
-// frame; the rest show the caught moment, the vault-cracking dial at 2/3 tumblers
+// cover: thief mid-crossing, guard cones, cameras — two of them JAMMED under a
+// live EMP window — loot and the alarm meter in one frame; the rest show the
+// caught moment, the vault-cracking dial at 2/3 tumblers
 // on the Sky Vault, and the clean getaway).
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.

@@ -100,21 +100,25 @@ export function drawHud(ctx, state, best) {
   text(ctx, `BAG ${p.weight}/${PLAYER.bagCapacity}   COINS ${p.coins}   BEST $${best.toLocaleString('en-US')}`, 26, 48, 14, PALETTE.text, 'left');
   text(ctx, state.level.name, 26, 67, 13, PALETTE.muted, 'left', true);
   // Gadget belt: the two limited tools, with their keys, under the haul box. A spent
-  // gadget greys out; a live EMP window counts down in violet.
+  // gadget greys out; a live EMP window counts down in violet. Chips are tall and
+  // the type is big — the EMP LIVE countdown is proof the tool works, so it must
+  // stay readable when the frame shrinks to a thumbnail.
   const chipY = 96;
+  const chipH = 30;
   const empLive = state.empTimer > 0;
-  ctx.fillStyle = empLive ? 'rgba(58,38,84,0.92)' : 'rgba(11,14,20,0.72)';
-  ctx.fillRect(14, chipY, 158, 26);
+  ctx.fillStyle = empLive ? 'rgba(58,38,84,0.95)' : 'rgba(11,14,20,0.72)';
+  ctx.fillRect(14, chipY, 176, chipH);
   ctx.strokeStyle = p.emp > 0 || empLive ? PALETTE.emp : 'rgba(147,160,180,0.4)';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(14.5, chipY + 0.5, 157, 25);
-  text(ctx, empLive ? `EMP LIVE ${state.empTimer.toFixed(1)}s` : `EMP ×${p.emp}  [Q]`, 24, chipY + 6, 13,
+  ctx.lineWidth = 2;
+  ctx.strokeRect(14.5, chipY + 0.5, 175, chipH - 1);
+  text(ctx, empLive ? `EMP LIVE ${state.empTimer.toFixed(1)}s` : `EMP ×${p.emp}  [Q]`, 24, chipY + 7, 15,
     p.emp > 0 || empLive ? '#e2ccff' : PALETTE.muted, 'left', true);
   ctx.fillStyle = 'rgba(11,14,20,0.72)';
-  ctx.fillRect(180, chipY, 152, 26);
+  ctx.fillRect(198, chipY, 160, chipH);
   ctx.strokeStyle = p.smoke > 0 ? '#9fb4c8' : 'rgba(147,160,180,0.4)';
-  ctx.strokeRect(180.5, chipY + 0.5, 151, 25);
-  text(ctx, `SMOKE ×${p.smoke}  [R]`, 190, chipY + 6, 13, p.smoke > 0 ? '#cfe4f7' : PALETTE.muted, 'left', true);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(198.5, chipY + 0.5, 159, chipH - 1);
+  text(ctx, `SMOKE ×${p.smoke}  [R]`, 208, chipY + 7, 15, p.smoke > 0 ? '#cfe4f7' : PALETTE.muted, 'left', true);
 
   // Centre-top: the alarm meter — the brief's required element, big and readable.
   const meterW = 380;
@@ -213,6 +217,30 @@ export function drawMinimap(ctx, state) {
   ctx.fill();
   ctx.textBaseline = 'top';
   text(ctx, 'MAP', mx + 6, my + 4, 10, PALETTE.muted, 'left', true);
+}
+
+/**
+ * The getaway payoff, as a compact banner over live gameplay (not a full panel):
+ * the moment the extraction channel completes, the haul is secured and the ghost
+ * rating is called — big enough to read at thumbnail size, small enough that the
+ * room, the van and the thief still own the frame.
+ */
+export function drawGetawayBanner(ctx, state, rating) {
+  // Anchored right of the gadget chips so the EMP LIVE countdown stays readable.
+  const x = 366;
+  const width = FIELD.width - x - 26;
+  const height = 84;
+  const y = 88;
+  ctx.fillStyle = 'rgba(11,20,16,0.92)';
+  ctx.fillRect(x, y, width, height);
+  ctx.strokeStyle = '#58dc9c';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x + 1, y + 1, width - 2, height - 2);
+  ctx.textBaseline = 'top';
+  text(ctx, `✓ CLEAN GETAWAY — HAUL SECURED $${state.player.haul.toLocaleString('en-US')}`,
+    x + width / 2, y + 10, 30, '#7de8a0', 'center', true);
+  text(ctx, `GHOST RATING: ${rating || '—'}  ·  TIME ${formatTime(state.elapsed)}  ·  DETECTIONS ${state.detections}  ·  PEAK ALARM ${Math.round(state.alarmPeak)}%`,
+    x + width / 2, y + 50, 16, PALETTE.text, 'center', true);
 }
 
 export function drawPanel(ctx, title, titleColor, lines, prompt) {

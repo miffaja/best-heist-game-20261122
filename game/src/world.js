@@ -387,7 +387,7 @@ export function createWorld(random) {
         if (dest) {
           burst(p.x, p.y, '#9fb4c8', 10, 60);
           // The duct path stays drawn for a moment so the route taken reads on screen.
-          state.ventTrail = { x1: p.x, y1: p.y, x2: dest.x, y2: dest.y, life: 1.8 };
+          state.ventTrail = { x1: p.x, y1: p.y, x2: dest.x, y2: dest.y, life: 2.6 };
           p.x = dest.x;
           p.y = dest.y;
           burst(p.x, p.y, '#9fb4c8', 10, 60);
@@ -618,6 +618,11 @@ export function createWorld(random) {
     /** Stage the gadget belt (staging / tests): charges left, EMP window, a live cloud. */
     setTools(emp, smoke) { state.player.emp = emp; state.player.smoke = smoke; },
     fireEmp(seconds) { state.empTimer = seconds; for (const c of state.cameras) c.jammed = true; },
+    /** Stage one camera's jammed flag (staging / tests): lets a frame show the EMP
+     *  window killing some cameras while others still sweep. */
+    setCameraJammed(index, jammed) { const c = state.cameras[index]; if (c) c.jammed = jammed; },
+    /** Stage the vent-slip duct trail at full brightness (staging / tests). */
+    setVentTrail(x1, y1, x2, y2) { state.ventTrail = { x1, y1, x2, y2, life: 1.8 }; },
     dropSmoke(x, y, life) { state.smokeClouds.push({ x, y, life }); },
     /** Swing a vault door open outright (staging / tests). */
     openVault(doorIndex) {
