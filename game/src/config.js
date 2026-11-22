@@ -91,11 +91,11 @@ export const PALETTE = {
   playerBag: '#8a6a2f',
   guard: '#2e4a78',        // navy security uniform
   guardTrim: '#e8ecf2',    // white cap + badge
-  guardCone: 'rgba(255,214,90,0.22)',
-  guardConeHot: 'rgba(255,90,70,0.36)',
+  guardCone: 'rgba(255,214,90,0.15)',
+  guardConeHot: 'rgba(255,90,70,0.27)',
   camera: '#cfe4f7',
-  cameraCone: 'rgba(140,205,255,0.20)',
-  cameraConeHot: 'rgba(255,80,80,0.38)',
+  cameraCone: 'rgba(140,205,255,0.13)',
+  cameraConeHot: 'rgba(255,80,80,0.28)',
   lootCash: '#58c472',
   lootGems: '#5fd4e8',
   lootGold: '#f2c94c',

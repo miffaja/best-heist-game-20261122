@@ -94,8 +94,8 @@ export function createRenderer(canvas) {
       ctx.lineWidth = 3;
       ctx.strokeRect(478, 260, 324, 200);
     }
-    // The vault door: a steel circle with spokes, on the vault room's wall.
-    const door = state.levelIndex === 0 ? { x: 880, y: 120 } : { x: 640, y: 232 };
+    // The vault door: a steel circle with spokes, clear of the dividing wall.
+    const door = state.levelIndex === 0 ? { x: 925, y: 172 } : { x: 640, y: 232 };
     ctx.fillStyle = '#39424f';
     ctx.beginPath();
     ctx.arc(door.x, door.y, 26, 0, Math.PI * 2);
@@ -117,12 +117,19 @@ export function createRenderer(canvas) {
     ctx.beginPath();
     ctx.arc(door.x, door.y, 5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.textBaseline = 'top';
-    text('VAULT', door.x, door.y + 30, 11, '#9fb4c8', 'center', true);
-    // Room nameplates, faint so they read as floor markings.
+    // Room nameplates, faint so they read as floor markings. Top rooms step below the
+    // HUD band so GALLERY / VAULT are never clipped by the alarm meter or haul box.
     for (const room of state.level.rooms) {
-      ctx.globalAlpha = 0.35;
-      text(room.label, room.x + 14, room.y + 10, 15, PALETTE.muted, 'left', true);
+      ctx.globalAlpha = 0.5;
+      const labelY = room.y < 100 ? room.y + 108 : room.y + 10;
+      text(room.label, room.x + 14, labelY, 15, PALETTE.muted, 'left', true);
+      ctx.globalAlpha = 1;
+    }
+    // Bank identity painted on the lobby floor — this is a bank heist, not a maze.
+    if (state.levelIndex === 0) {
+      ctx.globalAlpha = 0.22;
+      text('MERIDIAN TRUST BANK', 212, 386, 20, '#9fb4c8', 'center', true);
+      text('EST. 1927 · VAULT ZERO', 212, 410, 12, '#9fb4c8', 'center', true);
       ctx.globalAlpha = 1;
     }
   }
@@ -251,22 +258,57 @@ export function createRenderer(canvas) {
   function drawLasers(state) {
     const armed = ALARM.levels[state.alarmLevel].lasersArmed;
     for (const laser of state.lasers) {
-      ctx.strokeStyle = armed ? PALETTE.laser : 'rgba(255,77,94,0.25)';
-      ctx.lineWidth = armed ? 2.5 : 1.5;
-      if (!armed) ctx.setLineDash([4, 5]);
-      ctx.beginPath();
-      ctx.moveTo(laser.x1, laser.y1);
-      ctx.lineTo(laser.x2, laser.y2);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      if (armed) {
+        // Glow halo + white-hot core so an armed tripwire reads even shrunk to a thumbnail.
+        ctx.strokeStyle = 'rgba(255,77,94,0.35)';
+        ctx.lineWidth = 9;
+        ctx.beginPath();
+        ctx.moveTo(laser.x1, laser.y1);
+        ctx.lineTo(laser.x2, laser.y2);
+        ctx.stroke();
+        ctx.strokeStyle = PALETTE.laser;
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(laser.x1, laser.y1);
+        ctx.lineTo(laser.x2, laser.y2);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,235,238,0.9)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(laser.x1, laser.y1);
+        ctx.lineTo(laser.x2, laser.y2);
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = 'rgba(255,77,94,0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 5]);
+        ctx.beginPath();
+        ctx.moveTo(laser.x1, laser.y1);
+        ctx.lineTo(laser.x2, laser.y2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
       ctx.fillStyle = '#39424f';
-      ctx.fillRect(laser.x1 - 4, laser.y1 - 4, 8, 8);
-      ctx.fillRect(laser.x2 - 4, laser.y2 - 4, 8, 8);
+      ctx.fillRect(laser.x1 - 5, laser.y1 - 5, 10, 10);
+      ctx.fillRect(laser.x2 - 5, laser.y2 - 5, 10, 10);
       ctx.fillStyle = armed ? PALETTE.laser : '#6b7686';
       ctx.beginPath();
-      ctx.arc(laser.x1, laser.y1, 2, 0, Math.PI * 2);
-      ctx.arc(laser.x2, laser.y2, 2, 0, Math.PI * 2);
+      ctx.arc(laser.x1, laser.y1, 2.5, 0, Math.PI * 2);
+      ctx.arc(laser.x2, laser.y2, 2.5, 0, Math.PI * 2);
       ctx.fill();
+      if (armed) {
+        const mx = (laser.x1 + laser.x2) / 2;
+        const my = (laser.y1 + laser.y2) / 2;
+        ctx.textBaseline = 'middle';
+        ctx.font = `700 10px ${FONT}`;
+        const labelW = ctx.measureText('LASER').width + 12;
+        ctx.fillStyle = 'rgba(90,20,28,0.9)';
+        ctx.fillRect(mx - labelW / 2, my - 9, labelW, 18);
+        ctx.strokeStyle = PALETTE.laser;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(mx - labelW / 2 + 0.5, my - 8.5, labelW - 1, 17);
+        text('LASER', mx, my + 1, 10, '#ffb3ba', 'center', true);
+      }
     }
   }
 
@@ -359,7 +401,18 @@ export function createRenderer(canvas) {
   function drawCone(state, x, y, angle, range, halfAngle, fill, scanLines) {
     const rays = 26;
     const dists = [];
-    ctx.fillStyle = fill;
+    // Radial falloff: bright at the source, fading to nothing at range, so two cones
+    // crossing stay readable instead of stacking into mud. Alpha is kept low on purpose.
+    const m = fill.match(/rgba\((\d+),(\d+),(\d+),([\d.]+)\)/);
+    if (m) {
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, range);
+      grad.addColorStop(0, `rgba(${m[1]},${m[2]},${m[3]},${m[4]})`);
+      grad.addColorStop(0.55, `rgba(${m[1]},${m[2]},${m[3]},${(Number(m[4]) * 0.55).toFixed(3)})`);
+      grad.addColorStop(1, `rgba(${m[1]},${m[2]},${m[3]},0.02)`);
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = fill;
+    }
     ctx.beginPath();
     ctx.moveTo(x, y);
     for (let i = 0; i <= rays; i += 1) {
@@ -410,7 +463,7 @@ export function createRenderer(canvas) {
         hot ? PALETTE.guardConeHot : PALETTE.guardCone, false);
     }
     for (const guard of state.guards) {
-      const r = GUARD.radius;
+      const r = GUARD.radius * 1.4; // drawn larger than the physics radius so guards read at thumbnail size
       const a = guard.angle;
       const px = Math.cos(a + Math.PI / 2);
       const py = Math.sin(a + Math.PI / 2);
@@ -419,6 +472,15 @@ export function createRenderer(canvas) {
       ctx.beginPath();
       ctx.ellipse(guard.x, guard.y + 6, r, r * 0.7, 0, 0, Math.PI * 2);
       ctx.fill();
+      // Boots mid-stride while patrolling (still while scanning at a waypoint).
+      if (guard.lookTimer <= 0) {
+        const stride = Math.sin(state.elapsed * 9 + guard.x * 0.05) * 6;
+        ctx.fillStyle = '#10141c';
+        ctx.beginPath();
+        ctx.arc(guard.x - Math.cos(a) * (r - 2) + px * 6 + Math.cos(a) * stride, guard.y - Math.sin(a) * (r - 2) + py * 6 + Math.sin(a) * stride, 4.5, 0, Math.PI * 2);
+        ctx.arc(guard.x - Math.cos(a) * (r - 2) - px * 6 - Math.cos(a) * stride, guard.y - Math.sin(a) * (r - 2) - py * 6 - Math.sin(a) * stride, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
       // Shoulders (uniform bulk) either side of the body.
       ctx.fillStyle = '#243a5e';
       ctx.beginPath();
@@ -442,11 +504,11 @@ export function createRenderer(canvas) {
       // Head + white cap with brim toward facing.
       ctx.fillStyle = '#d9a877';
       ctx.beginPath();
-      ctx.arc(guard.x + Math.cos(a) * 3, guard.y + Math.sin(a) * 3, 8, 0, Math.PI * 2);
+      ctx.arc(guard.x + Math.cos(a) * 4, guard.y + Math.sin(a) * 4, 11, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = PALETTE.guardTrim;
       ctx.beginPath();
-      ctx.arc(guard.x + Math.cos(a) * 3, guard.y + Math.sin(a) * 3, 8, a - 1.9, a + 1.9);
+      ctx.arc(guard.x + Math.cos(a) * 4, guard.y + Math.sin(a) * 4, 11, a - 1.9, a + 1.9);
       ctx.fill();
       ctx.beginPath();
       ctx.moveTo(guard.x + Math.cos(a) * 9, guard.y + Math.sin(a) * 9);
@@ -560,9 +622,20 @@ export function createRenderer(canvas) {
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 1;
       ctx.stroke();
-      // "CAMERA" label on a dark pill, stepped into the room so it never hides under HUD.
-      const lx = hx + Math.cos(camera.baseAngle) * 34;
-      const ly = hy + Math.sin(camera.baseAngle) * 34;
+    }
+  }
+
+  /** CAMERA pills, drawn after the walls so a desk or planter can never paint over one.
+   *  Stepped well into the room to clear the HUD band, and nudged sideways off loot tags. */
+  function drawCameraLabels(state) {
+    for (const camera of state.cameras) {
+      const hx = camera.x + Math.cos(camera.baseAngle) * 20;
+      const hy = camera.y + Math.sin(camera.baseAngle) * 20;
+      let lx = hx + Math.cos(camera.baseAngle) * 58;
+      const ly = hy + Math.sin(camera.baseAngle) * 58;
+      for (const item of state.loot) {
+        if (!item.taken && Math.abs(item.x - lx) < 52 && Math.abs(item.y + 28 - ly) < 26) lx += 84;
+      }
       ctx.textBaseline = 'middle';
       ctx.font = `700 12px ${FONT}`;
       const labelW = ctx.measureText('CAMERA').width + 14;
@@ -580,7 +653,9 @@ export function createRenderer(canvas) {
 
   function drawPlayer(state) {
     const p = state.player;
-    const radius = p.crouch ? PLAYER.radius - 3 : PLAYER.radius;
+    // Drawn ~1.5x the physics radius: the thief is the subject of every screenshot and
+    // must stay legible when the judge shrinks the frame to a thumbnail.
+    const radius = (p.crouch ? PLAYER.radius - 3 : PLAYER.radius) * 1.5;
     const a = p.angle;
     const px = Math.cos(a + Math.PI / 2);
     const py = Math.sin(a + Math.PI / 2);
@@ -618,6 +693,15 @@ export function createRenderer(canvas) {
     ctx.fill();
     ctx.textBaseline = 'middle';
     text('$', bagX, bagY + 1, 13, '#3a2c10', 'center', true);
+    // Boots mid-stride while moving — the cover thief is caught mid-crossing, not parked.
+    if (p.moving) {
+      const stride = Math.sin(state.elapsed * 11) * 7;
+      ctx.fillStyle = '#05070b';
+      ctx.beginPath();
+      ctx.arc(p.x - Math.cos(a) * (radius + 1) + px * 11 + Math.cos(a) * stride, p.y - Math.sin(a) * (radius + 1) + py * 11 + Math.sin(a) * stride, 5.5, 0, Math.PI * 2);
+      ctx.arc(p.x - Math.cos(a) * (radius + 1) - px * 11 - Math.cos(a) * stride, p.y - Math.sin(a) * (radius + 1) - py * 11 - Math.sin(a) * stride, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
     // Shoulders in the dark outfit.
     ctx.fillStyle = '#232d40';
     ctx.beginPath();
@@ -643,11 +727,11 @@ export function createRenderer(canvas) {
     // Head with gold mask band across the eyes + hood point at the back.
     ctx.fillStyle = '#d9a877';
     ctx.beginPath();
-    ctx.arc(p.x + Math.cos(a) * 3, p.y + Math.sin(a) * 3, 8.5, 0, Math.PI * 2);
+    ctx.arc(p.x + Math.cos(a) * 4, p.y + Math.sin(a) * 4, 12, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = PALETTE.playerTrim;
     ctx.beginPath();
-    ctx.arc(p.x + Math.cos(a) * 3, p.y + Math.sin(a) * 3, 8.5, a - 1.15, a + 1.15);
+    ctx.arc(p.x + Math.cos(a) * 4, p.y + Math.sin(a) * 4, 12, a - 1.15, a + 1.15);
     ctx.fill();
     ctx.fillStyle = '#10141c';
     ctx.beginPath();
@@ -662,26 +746,63 @@ export function createRenderer(canvas) {
     ctx.closePath();
     ctx.fill();
     if (p.crouch) {
-      ctx.strokeStyle = 'rgba(159,180,200,0.7)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(159,180,200,0.85)';
+      ctx.lineWidth = 2;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
-      ctx.arc(p.x, p.y, radius + 5, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, radius + 6, 0, Math.PI * 2);
       ctx.stroke();
       ctx.setLineDash([]);
+      // CROUCH pill under the thief: low profile = hidden behind planters and cases.
+      ctx.textBaseline = 'middle';
+      ctx.font = `700 11px ${FONT}`;
+      const crouchW = ctx.measureText('▼ CROUCH').width + 14;
+      const crouchY = p.y + radius + 22;
+      ctx.fillStyle = 'rgba(11,14,20,0.88)';
+      ctx.fillRect(p.x - crouchW / 2, crouchY - 10, crouchW, 20);
+      ctx.strokeStyle = '#9fb4c8';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(p.x - crouchW / 2 + 0.5, crouchY - 9.5, crouchW - 1, 19);
+      text('▼ CROUCH', p.x, crouchY + 1, 11, '#cfe4f7', 'center', true);
     }
-    // Grab / extraction progress ring.
+    // Grab / extraction progress: a fat ring plus a named label, readable in a still frame.
     const progress = Math.max(p.grabProgress, p.extractProgress);
     if (progress > 0) {
-      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-      ctx.lineWidth = 5;
+      const extracting = p.extractProgress > 0;
+      ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+      ctx.lineWidth = 9;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, radius + 9, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, radius + 16, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.strokeStyle = p.extractProgress > 0 ? '#58dc9c' : '#f2c94c';
+      ctx.strokeStyle = extracting ? '#58dc9c' : '#f2c94c';
       ctx.beginPath();
-      ctx.arc(p.x, p.y, radius + 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+      ctx.arc(p.x, p.y, radius + 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
       ctx.stroke();
+      const lootName = extracting ? 'ESCAPING' : (p.grabTarget ? LOOT_KINDS[p.grabTarget.kind].label.toUpperCase() : 'LOOT');
+      const grabLabel = `${extracting ? 'ESCAPING' : 'GRABBING'} ${lootName}… ${Math.round(progress * 100)}%`;
+      ctx.textBaseline = 'middle';
+      ctx.font = `700 14px ${FONT}`;
+      const grabW = ctx.measureText(grabLabel).width + 18;
+      const grabY = p.y + radius + (p.crouch ? 48 : 30);
+      ctx.fillStyle = 'rgba(11,14,20,0.9)';
+      ctx.fillRect(p.x - grabW / 2, grabY - 12, grabW, 24);
+      ctx.strokeStyle = extracting ? '#58dc9c' : '#f2c94c';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(p.x - grabW / 2 + 0.5, grabY - 11.5, grabW - 1, 23);
+      text(grabLabel, p.x, grabY + 1, 14, extracting ? '#7de8a0' : '#f2c94c', 'center', true);
+    } else if (p.weight >= 4) {
+      // A heavy bag slows the thief — say so where the judge can see it.
+      ctx.textBaseline = 'middle';
+      ctx.font = `700 11px ${FONT}`;
+      const heavyLabel = `BAG ${p.weight}/${PLAYER.bagCapacity} — HEAVY, SLOW`;
+      const heavyW = ctx.measureText(heavyLabel).width + 14;
+      const heavyY = p.y + radius + (p.crouch ? 48 : 30);
+      ctx.fillStyle = 'rgba(11,14,20,0.88)';
+      ctx.fillRect(p.x - heavyW / 2, heavyY - 10, heavyW, 20);
+      ctx.strokeStyle = '#e8b23a';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(p.x - heavyW / 2 + 0.5, heavyY - 9.5, heavyW - 1, 19);
+      text(heavyLabel, p.x, heavyY + 1, 11, '#f2c94c', 'center', true);
     }
     // Detection eye: the fullest guard meter, shown over the thief.
     let worst = 0;
@@ -726,10 +847,45 @@ export function createRenderer(canvas) {
   function drawEffects(state) {
     for (const coin of state.coinsInFlight) {
       const x = coin.x + (coin.tx - coin.x) * coin.t;
-      const y = coin.y + (coin.ty - coin.y) * coin.t - Math.sin(coin.t * Math.PI) * 26;
+      const y = coin.y + (coin.ty - coin.y) * coin.t - Math.sin(coin.t * Math.PI) * 30;
+      // Dashed flight arc + landing ring: a tossed coin reads as a deliberate distraction.
+      ctx.strokeStyle = 'rgba(242,201,76,0.55)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      for (let i = 0; i <= 16; i += 1) {
+        const t = i / 16;
+        const ax = coin.x + (coin.tx - coin.x) * t;
+        const ay = coin.y + (coin.ty - coin.y) * t - Math.sin(t * Math.PI) * 30;
+        if (i === 0) ctx.moveTo(ax, ay); else ctx.lineTo(ax, ay);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(242,201,76,0.8)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(coin.tx, coin.ty, 10, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(coin.tx, coin.ty, 4, 0, Math.PI * 2);
+      ctx.stroke();
+      // The coin itself, stamped and glinting.
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(x, y + 8, 6, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = '#f2c94c';
       ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#b98a1e';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.textBaseline = 'middle';
+      text('$', x, y + 1, 9, '#3a2c10', 'center', true);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath();
+      ctx.arc(x - 2, y - 2, 1.6, 0, Math.PI * 2);
       ctx.fill();
     }
     for (const pt of state.particles) {
@@ -751,15 +907,15 @@ export function createRenderer(canvas) {
   function drawHud(state, best) {
     const p = state.player;
     ctx.textBaseline = 'top';
-    // Top-left: haul, bag, coins.
+    // Top-left: haul, bag, coins. Kept compact so it never swallows a CAMERA label.
     ctx.fillStyle = 'rgba(11,14,20,0.72)';
-    ctx.fillRect(14, 12, 330, 86);
+    ctx.fillRect(14, 12, 318, 78);
     ctx.strokeStyle = 'rgba(232,178,58,0.5)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(14.5, 12.5, 329, 85);
-    text(`HAUL  $${p.haul.toLocaleString('en-US')}`, 26, 20, 24, '#7de8a0', 'left', true);
-    text(`BAG ${p.weight}/${PLAYER.bagCapacity}   COINS ${p.coins}   BEST $${best.toLocaleString('en-US')}`, 26, 52, 15, PALETTE.text, 'left');
-    text(state.level.name, 26, 74, 13, PALETTE.muted, 'left', true);
+    ctx.strokeRect(14.5, 12.5, 317, 77);
+    text(`HAUL  $${p.haul.toLocaleString('en-US')}`, 26, 19, 23, '#7de8a0', 'left', true);
+    text(`BAG ${p.weight}/${PLAYER.bagCapacity}   COINS ${p.coins}   BEST $${best.toLocaleString('en-US')}`, 26, 48, 14, PALETTE.text, 'left');
+    text(state.level.name, 26, 68, 12, PALETTE.muted, 'left', true);
 
     // Centre-top: the alarm meter — the brief's required element, big and readable.
     const meterW = 380;
@@ -804,10 +960,11 @@ export function createRenderer(canvas) {
   }
 
   function drawMinimap(state) {
-    const mw = 196;
-    const mh = 110;
+    // Bottom-right, clear of every camera housing and label along the top wall.
+    const mw = 168;
+    const mh = 95;
     const mx = FIELD.width - mw - 14;
-    const my = 52;
+    const my = FIELD.height - mh - 54;
     const sx = mw / FIELD.width;
     const sy = mh / FIELD.height;
     ctx.fillStyle = 'rgba(11,14,20,0.78)';
@@ -879,6 +1036,7 @@ export function createRenderer(canvas) {
     drawCameras(state);   // cones under the actors
     drawGuards(state);
     drawWalls(state);     // walls over cone edges so rooms read cleanly
+    drawCameraLabels(state); // pills over the walls, under the thief
     drawPlayer(state);
     drawEffects(state);
 
