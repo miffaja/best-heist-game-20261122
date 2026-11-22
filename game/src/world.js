@@ -11,7 +11,7 @@
 // the green zone to set a tumbler. Three tumblers swing the door open; a release outside
 // the green jams the lock and raises the alarm. Progress on a door is kept if the thief
 // steps away and comes back.
-import { ALARM, CAMERA, FIELD, GUARD, LOOT_KINDS, NOISE, PLAYER, VAULT } from './config.js';
+import { ALARM, CAMERA, FIELD, GUARD, LOOT_KINDS, NOISE, PLAYER, TOOLS, VAULT, VENT } from './config.js';
 import { LEVELS } from './levels.js';
 
 export const EVENT_LOOT = 1;
@@ -25,6 +25,9 @@ export const EVENT_GUARD_ALERT = 128;
 export const EVENT_VAULT_TUMBLER = 256; // a tumbler clicked into place
 export const EVENT_VAULT_FAIL = 512;    // a jammed release: alarm up
 export const EVENT_VAULT_OPEN = 1024;   // the vault door swung open
+export const EVENT_EMP = 2048;          // the EMP jammer fired: cameras + lasers dead
+export const EVENT_SMOKE = 4096;        // a smoke bomb popped: sight blocked in the cloud
+export const EVENT_VENT = 8192;         // the thief slipped through a vent grate
 
 /** Which escalation band an alarm value falls in (index into ALARM.levels). */
 export function alarmLevelIndex(alarm) {
@@ -141,6 +144,9 @@ export function createWorld(random) {
     particles: [],
     floaters: [],   // {x, y, text, life} rising labels ("+$2,000", "BAG FULL")
     coinsInFlight: [],
+    vents: [],      // paired wall grates from the level (index pairs 0<->1, 2<->3)
+    smokeClouds: [], // {x, y, life} — sight is blocked inside a cloud
+    empTimer: 0,    // >0 while the EMP jammer holds cameras + lasers dead
     alarm: 0,
     alarmPeak: 0,
     alarmLevel: 0,
@@ -187,8 +193,12 @@ export function createWorld(random) {
       x: level.spawn.x, y: level.spawn.y, angle: -Math.PI / 2,
       crouch: false, sprint: false, moving: false,
       weight: 0, haul: 0, coins: PLAYER.coins,
+      emp: TOOLS.empCharges, smoke: TOOLS.smokeCharges,
       grabProgress: 0, grabTarget: null, extractProgress: 0,
     };
+    state.vents = (level.vents || []).map((v) => ({ x: v.x, y: v.y }));
+    state.smokeClouds = [];
+    state.empTimer = 0;
     state.guards = level.guards.map((g) => ({
       x: g.path[0][0], y: g.path[0][1],
       angle: Math.atan2(g.path[1][1] - g.path[0][1], g.path[1][0] - g.path[0][0]),
@@ -246,9 +256,16 @@ export function createWorld(random) {
     entity.y = Math.max(radius, Math.min(FIELD.height - radius, entity.y));
   }
 
+  /** Is the thief standing inside a smoke cloud? Sight stops at the cloud's edge. */
+  function thiefInSmoke() {
+    const p = state.player;
+    return state.smokeClouds.some((c) => Math.hypot(p.x - c.x, p.y - c.y) < TOOLS.smokeRadius);
+  }
+
   /** Can an observer at (x,y) facing `angle` see the thief right now? */
   function canSeeThief(x, y, angle, range, halfAngle) {
     const p = state.player;
+    if (thiefInSmoke()) return false; // a smoke cloud hides the thief from everyone
     const dx = p.x - x;
     const dy = p.y - y;
     const dist = Math.hypot(dx, dy);
@@ -348,7 +365,9 @@ export function createWorld(random) {
   function stepCamera(camera, dt, events) {
     const sweepMul = ALARM.levels[state.alarmLevel].sweepMul;
     camera.angle = camera.baseAngle + Math.sin(state.elapsed * CAMERA.sweepSpeed * sweepMul + camera.phase) * CAMERA.sweepHalfAngle;
-    camera.seeing = canSeeThief(camera.x, camera.y, camera.angle, CAMERA.viewRange, CAMERA.viewHalfAngle);
+    // An EMP pulse freezes the sweep and blinds the lens until the timer runs out.
+    camera.jammed = state.empTimer > 0;
+    camera.seeing = !camera.jammed && canSeeThief(camera.x, camera.y, camera.angle, CAMERA.viewRange, CAMERA.viewHalfAngle);
     if (camera.seeing) {
       state.alarm = Math.min(ALARM.max, state.alarm + CAMERA.alarmRate * dt);
       if (!camera.wasSeeing) events.value |= EVENT_CAMERA;
@@ -433,6 +452,43 @@ export function createWorld(random) {
       }
     }
 
+    // --- Tools at a cost: EMP jammer (Q) and smoke bomb (R), scarce per floor. ---
+    state.empTimer = Math.max(0, state.empTimer - dt);
+    if (input.emp && p.emp > 0 && state.empTimer === 0) {
+      p.emp -= 1;
+      state.empTimer = TOOLS.empSeconds;
+      events.value |= EVENT_EMP;
+      burst(p.x, p.y, '#b48ae8', 20, 160);
+      floater(p.x, p.y - 34, 'EMP — CAMERAS JAMMED!', '#b48ae8');
+    }
+    if (input.smoke && p.smoke > 0) {
+      p.smoke -= 1;
+      state.smokeClouds.push({ x: p.x, y: p.y, life: TOOLS.smokeSeconds });
+      events.value |= EVENT_SMOKE;
+      burst(p.x, p.y, '#b4becd', 16, 70);
+      floater(p.x, p.y - 34, 'SMOKE!', '#cfe4f7');
+    }
+    for (let i = state.smokeClouds.length - 1; i >= 0; i -= 1) {
+      state.smokeClouds[i].life -= dt;
+      if (state.smokeClouds[i].life <= 0) state.smokeClouds.splice(i, 1);
+    }
+
+    // --- Vents: tap E at a grate to slip to its pair (a second route past doors). ---
+    if (input.interact && !state.prevInteract && nearDoor < 0) {
+      const vi = state.vents.findIndex((v) => Math.hypot(v.x - p.x, v.y - p.y) < VENT.useRange);
+      if (vi >= 0) {
+        const dest = state.vents[vi % 2 === 0 ? vi + 1 : vi - 1];
+        if (dest) {
+          burst(p.x, p.y, '#9fb4c8', 10, 60);
+          p.x = dest.x;
+          p.y = dest.y;
+          burst(p.x, p.y, '#9fb4c8', 10, 60);
+          floater(p.x, p.y - 30, 'THROUGH THE VENT', '#cfe4f7');
+          events.value |= EVENT_VENT;
+        }
+      }
+    }
+
     // --- Guards and cameras perceive, then move. ---
     for (const guard of state.guards) stepGuard(guard, dt);
     for (const camera of state.cameras) stepCamera(camera, dt, events);
@@ -449,8 +505,8 @@ export function createWorld(random) {
       }
     }
 
-    // --- Laser tripwires (armed from HUNTED up). ---
-    const lasersArmed = ALARM.levels[state.alarmLevel].lasersArmed;
+    // --- Laser tripwires (armed from HUNTED up; an EMP pulse kills them too). ---
+    const lasersArmed = ALARM.levels[state.alarmLevel].lasersArmed && state.empTimer === 0;
     for (const laser of state.lasers) {
       laser.cooldown = Math.max(0, laser.cooldown - dt);
       if (lasersArmed && laser.cooldown === 0 && (prevX !== p.x || prevY !== p.y)) {
@@ -647,6 +703,10 @@ export function createWorld(random) {
       state.crackDoor = doorIndex;
       state.prevInteract = true;
     },
+    /** Stage the gadget belt (staging / tests): charges left, EMP window, a live cloud. */
+    setTools(emp, smoke) { state.player.emp = emp; state.player.smoke = smoke; },
+    fireEmp(seconds) { state.empTimer = seconds; for (const c of state.cameras) c.jammed = true; },
+    dropSmoke(x, y, life) { state.smokeClouds.push({ x, y, life }); },
     /** Swing a vault door open outright (staging / tests). */
     openVault(doorIndex) {
       const door = state.vaultDoors[doorIndex];

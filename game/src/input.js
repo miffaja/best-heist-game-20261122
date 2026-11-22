@@ -6,6 +6,8 @@
 export const ACTION_CONFIRM = 1;
 export const ACTION_PAUSE = 2;
 export const ACTION_MUTE = 4;
+export const ACTION_EMP = 8;    // Q: fire the EMP jammer (cameras + lasers die)
+export const ACTION_SMOKE = 16; // R: drop a smoke bomb (sight blocked in the cloud)
 
 const UP = new Set(['ArrowUp', 'KeyW']);
 const DOWN = new Set(['ArrowDown', 'KeyS']);
@@ -41,6 +43,8 @@ export function createInput(target, toField) {
     if (CONFIRM.has(event.code)) { if (!event.repeat) actions |= ACTION_CONFIRM; }
     else if (PAUSE.has(event.code)) { if (!event.repeat) actions |= ACTION_PAUSE; }
     else if (event.code === 'KeyM') { if (!event.repeat) actions |= ACTION_MUTE; }
+    else if (event.code === 'KeyQ') { if (!event.repeat) actions |= ACTION_EMP; }
+    else if (event.code === 'KeyR') { if (!event.repeat) actions |= ACTION_SMOKE; }
     else return;
     event.preventDefault();
   });

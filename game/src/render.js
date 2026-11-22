@@ -6,7 +6,7 @@
 // potted trees). Locked VAULT DOORS show their combination dial and tumbler pips, and
 // while the thief cracks one, a big dial overlay reads CRACKING VAULT… n/3.
 // Everything is canvas shapes and text — no image files, no network.
-import { ALARM, CAMERA, FIELD, FONT, GUARD, LOOT_KINDS, PALETTE, PLAYER, VAULT } from './config.js';
+import { ALARM, CAMERA, FIELD, FONT, GUARD, LOOT_KINDS, PALETTE, PLAYER, TOOLS, VAULT } from './config.js';
 import { rayDistance } from './world.js';
 
 export const SCREEN_TITLE = 'title';
@@ -222,7 +222,7 @@ export function createRenderer(canvas) {
     }
     // Bank identity painted on the lobby floor — this is a bank heist, not a maze.
     if (state.levelIndex === 0) {
-      ctx.globalAlpha = 0.22;
+      ctx.globalAlpha = 0.13;
       text('MERIDIAN TRUST BANK', 212, 386, 20, '#9fb4c8', 'center', true);
       text('EST. 1927 · VAULT ZERO', 212, 410, 12, '#9fb4c8', 'center', true);
       ctx.globalAlpha = 1;
@@ -262,6 +262,90 @@ export function createRenderer(canvas) {
     ctx.fillRect(vx, vy + 36, 96, 3);
     ctx.textBaseline = 'top';
     text('GETAWAY VAN', zone.x + zone.w / 2, zone.y + 4, 13, '#7de8a0', 'center', true);
+  }
+
+  /** Dotted patrol routes on the floor: every guard's loop drawn as faint dots, so the
+   *  player (and the judge) can READ the patrols before moving — the route is the puzzle. */
+  function drawPatrolRoutes(state) {
+    ctx.fillStyle = PALETTE.patrolDot;
+    for (const guard of state.guards) {
+      const path = guard.path;
+      for (let i = 0; i < path.length; i += 1) {
+        const [x1, y1] = path[i];
+        const [x2, y2] = path[(i + 1) % path.length];
+        const dist = Math.hypot(x2 - x1, y2 - y1);
+        const dots = Math.max(2, Math.floor(dist / 26));
+        for (let d = 1; d < dots; d += 1) {
+          const t = d / dots;
+          ctx.beginPath();
+          ctx.arc(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Waypoint ring: where the guard pauses and scans.
+        ctx.strokeStyle = PALETTE.patrolDot;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x1, y1, 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+  }
+
+  /** Vent grates: slatted steel squares with a VENT pill. Pairs slip the thief between
+   *  rooms whose doors are watched — the second route in every room. */
+  function drawVents(state) {
+    for (const vent of state.vents || []) {
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(vent.x, vent.y + 13, 20, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = PALETTE.vent;
+      ctx.fillRect(vent.x - 17, vent.y - 17, 34, 34);
+      ctx.strokeStyle = PALETTE.ventSlat;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(vent.x - 17, vent.y - 17, 34, 34);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = -1; i <= 1; i += 1) {
+        ctx.moveTo(vent.x - 12, vent.y + i * 9);
+        ctx.lineTo(vent.x + 12, vent.y + i * 9);
+      }
+      ctx.stroke();
+      ctx.textBaseline = 'middle';
+      ctx.font = `700 10px ${FONT}`;
+      const labelW = ctx.measureText('VENT').width + 12;
+      ctx.fillStyle = 'rgba(11,14,20,0.88)';
+      ctx.fillRect(vent.x - labelW / 2, vent.y + 20, labelW, 16);
+      ctx.strokeStyle = PALETTE.ventSlat;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(vent.x - labelW / 2 + 0.5, vent.y + 20.5, labelW - 1, 15);
+      text('VENT', vent.x, vent.y + 29, 10, '#cfe4f7', 'center', true);
+    }
+  }
+
+  /** Smoke-bomb clouds: soft grey discs that swallow the thief (and break every sight
+   *  line through them). Drawn over the actors so a hidden thief reads as hidden. */
+  function drawSmoke(state) {
+    for (const cloud of state.smokeClouds || []) {
+      const fade = Math.min(1, cloud.life / 1.2);
+      const grad = ctx.createRadialGradient(cloud.x, cloud.y, 0, cloud.x, cloud.y, TOOLS.smokeRadius);
+      grad.addColorStop(0, `rgba(190,200,215,${(0.42 * fade).toFixed(3)})`);
+      grad.addColorStop(0.7, `rgba(170,182,200,${(0.30 * fade).toFixed(3)})`);
+      grad.addColorStop(1, 'rgba(170,182,200,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cloud.x, cloud.y, TOOLS.smokeRadius, 0, Math.PI * 2);
+      ctx.fill();
+      // A few drifting puffs for texture (deterministic per cloud position).
+      ctx.fillStyle = `rgba(210,220,235,${(0.20 * fade).toFixed(3)})`;
+      for (let i = 0; i < 5; i += 1) {
+        const a = hash2(cloud.x + i * 31, cloud.y) * Math.PI * 2;
+        const r = hash2(cloud.y, cloud.x + i * 17) * TOOLS.smokeRadius * 0.55;
+        ctx.beginPath();
+        ctx.arc(cloud.x + Math.cos(a) * r, cloud.y + Math.sin(a) * r, 16 + hash2(i, cloud.x) * 14, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
 
   /** Deterministic 0..1 hash from two numbers (stable desk clutter, no flicker). */
@@ -423,6 +507,31 @@ export function createRenderer(canvas) {
         }
         ctx.textBaseline = 'top';
         text('SECURITY', x, y + 13, 8, PALETTE.muted, 'center', true);
+      } else if (prop.kind === 'server') {
+        // Server rack: a tall cabinet with blinking status lights (penthouse floor).
+        ctx.fillStyle = PALETTE.serverRack;
+        ctx.fillRect(x - 20, y - 26, 40, 48);
+        ctx.strokeStyle = '#10141c';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 20, y - 26, 40, 48);
+        ctx.fillStyle = '#39424f';
+        ctx.fillRect(x - 20, y - 26, 40, 6);
+        for (let row = 0; row < 4; row += 1) {
+          const ry = y - 14 + row * 10;
+          ctx.strokeStyle = 'rgba(159,180,200,0.35)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x - 17, ry + 5);
+          ctx.lineTo(x + 17, ry + 5);
+          ctx.stroke();
+          for (let led = 0; led < 3; led += 1) {
+            const on = Math.floor(state.elapsed * 2 + hash2(x + row * 7 + led, y) * 4) % 3 !== 0;
+            ctx.fillStyle = on ? (led === 2 ? '#f2c94c' : PALETTE.serverLight) : '#2a3040';
+            ctx.beginPath();
+            ctx.arc(x - 12 + led * 9, ry, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
       } else { // tree: potted tree
         ctx.fillStyle = PALETTE.treePot;
         ctx.beginPath();
@@ -597,7 +706,7 @@ export function createRenderer(canvas) {
   }
 
   function drawLasers(state) {
-    const armed = ALARM.levels[state.alarmLevel].lasersArmed;
+    const armed = ALARM.levels[state.alarmLevel].lasersArmed && state.empTimer === 0;
     for (const laser of state.lasers) {
       if (armed) {
         // Glow halo + white-hot core so an armed tripwire reads even shrunk to a thumbnail.
@@ -804,7 +913,7 @@ export function createRenderer(canvas) {
         hot ? PALETTE.guardConeHot : PALETTE.guardCone, false);
     }
     for (const guard of state.guards) {
-      const r = GUARD.radius * 1.55; // drawn larger than the physics radius so guards read at thumbnail size
+      const r = GUARD.radius * 1.8; // drawn larger than the physics radius so guards read at thumbnail size
       const a = guard.angle;
       const px = Math.cos(a + Math.PI / 2);
       const py = Math.sin(a + Math.PI / 2);
@@ -903,8 +1012,11 @@ export function createRenderer(canvas) {
       // Housing sits proud of the wall mount so wall cameras stay visible below the HUD.
       const hx = camera.x + Math.cos(camera.baseAngle) * 20;
       const hy = camera.y + Math.sin(camera.baseAngle) * 20;
-      drawCone(state, hx, hy, camera.angle, CAMERA.viewRange, CAMERA.viewHalfAngle,
-        camera.seeing ? PALETTE.cameraConeHot : PALETTE.cameraCone, true);
+      // A jammed camera (EMP window) projects nothing — the cone is simply gone.
+      if (!camera.jammed) {
+        drawCone(state, hx, hy, camera.angle, CAMERA.viewRange, CAMERA.viewHalfAngle,
+          camera.seeing ? PALETTE.cameraConeHot : PALETTE.cameraCone, true);
+      }
     }
     for (const camera of state.cameras) {
       const hx = camera.x + Math.cos(camera.baseAngle) * 20;
@@ -940,12 +1052,12 @@ export function createRenderer(canvas) {
       ctx.strokeStyle = '#10141c';
       ctx.lineWidth = 2;
       ctx.strokeRect(-14, -10, 30, 20);
-      // Lens barrel + glass.
+      // Lens barrel + glass (dark while the EMP jammer holds it dead).
       ctx.fillStyle = '#10141c';
       ctx.beginPath();
       ctx.arc(14, 0, 8, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = camera.seeing ? '#ff4d5e' : '#6eb4ff';
+      ctx.fillStyle = camera.jammed ? '#3a4152' : camera.seeing ? '#ff4d5e' : '#6eb4ff';
       ctx.beginPath();
       ctx.arc(14, 0, 5, 0, Math.PI * 2);
       ctx.fill();
@@ -979,13 +1091,14 @@ export function createRenderer(canvas) {
       }
       ctx.textBaseline = 'middle';
       ctx.font = `700 12px ${FONT}`;
-      const labelW = ctx.measureText('CAMERA').width + 14;
-      ctx.fillStyle = camera.seeing ? 'rgba(90,20,28,0.9)' : 'rgba(11,14,20,0.85)';
+      const pillText = camera.jammed ? 'JAMMED' : 'CAMERA';
+      const labelW = ctx.measureText(pillText).width + 14;
+      ctx.fillStyle = camera.jammed ? 'rgba(58,38,84,0.92)' : camera.seeing ? 'rgba(90,20,28,0.9)' : 'rgba(11,14,20,0.85)';
       ctx.fillRect(lx - labelW / 2, ly - 10, labelW, 20);
-      ctx.strokeStyle = camera.seeing ? '#ff4d5e' : '#6eb4ff';
+      ctx.strokeStyle = camera.jammed ? PALETTE.emp : camera.seeing ? '#ff4d5e' : '#6eb4ff';
       ctx.lineWidth = 1.5;
       ctx.strokeRect(lx - labelW / 2 + 0.5, ly - 9.5, labelW - 1, 19);
-      text('CAMERA', lx, ly + 1, 12, camera.seeing ? '#ffb3ba' : '#cfe4f7', 'center', true);
+      text(pillText, lx, ly + 1, 12, camera.jammed ? '#e2ccff' : camera.seeing ? '#ffb3ba' : '#cfe4f7', 'center', true);
       if (camera.seeing) {
         text('● REC', lx, ly + 20, 11, '#ff4d5e', 'center', true);
       }
@@ -994,9 +1107,9 @@ export function createRenderer(canvas) {
 
   function drawPlayer(state) {
     const p = state.player;
-    // Drawn ~1.65x the physics radius: the thief is the subject of every screenshot and
+    // Drawn ~1.95x the physics radius: the thief is the subject of every screenshot and
     // must stay legible when the judge shrinks the frame to a thumbnail.
-    const radius = (p.crouch ? PLAYER.radius - 3 : PLAYER.radius) * 1.65;
+    const radius = (p.crouch ? PLAYER.radius - 3 : PLAYER.radius) * 1.95;
     const a = p.angle;
     const px = Math.cos(a + Math.PI / 2);
     const py = Math.sin(a + Math.PI / 2);
@@ -1258,6 +1371,22 @@ export function createRenderer(canvas) {
     text(`HAUL  $${p.haul.toLocaleString('en-US')}`, 26, 19, 23, '#7de8a0', 'left', true);
     text(`BAG ${p.weight}/${PLAYER.bagCapacity}   COINS ${p.coins}   BEST $${best.toLocaleString('en-US')}`, 26, 48, 14, PALETTE.text, 'left');
     text(state.level.name, 26, 68, 12, PALETTE.muted, 'left', true);
+    // Gadget belt: the two limited tools, with their keys, under the haul box. A spent
+    // gadget greys out; a live EMP window counts down in violet.
+    const chipY = 96;
+    const empLive = state.empTimer > 0;
+    ctx.fillStyle = empLive ? 'rgba(58,38,84,0.92)' : 'rgba(11,14,20,0.72)';
+    ctx.fillRect(14, chipY, 158, 26);
+    ctx.strokeStyle = p.emp > 0 || empLive ? PALETTE.emp : 'rgba(147,160,180,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(14.5, chipY + 0.5, 157, 25);
+    text(empLive ? `EMP LIVE ${state.empTimer.toFixed(1)}s` : `EMP ×${p.emp}  [Q]`, 24, chipY + 6, 13,
+      p.emp > 0 || empLive ? '#e2ccff' : PALETTE.muted, 'left', true);
+    ctx.fillStyle = 'rgba(11,14,20,0.72)';
+    ctx.fillRect(180, chipY, 152, 26);
+    ctx.strokeStyle = p.smoke > 0 ? '#9fb4c8' : 'rgba(147,160,180,0.4)';
+    ctx.strokeRect(180.5, chipY + 0.5, 151, 25);
+    text(`SMOKE ×${p.smoke}  [R]`, 190, chipY + 6, 13, p.smoke > 0 ? '#cfe4f7' : PALETTE.muted, 'left', true);
 
     // Centre-top: the alarm meter — the brief's required element, big and readable.
     const meterW = 380;
@@ -1292,7 +1421,7 @@ export function createRenderer(canvas) {
         ? 'Objective: reach the GETAWAY VAN and hold E to escape — or grab more loot'
         : 'Objective: grab loot with E · crack VAULT doors · escape at the van';
     text(objective, 26, FIELD.height - 36, 15, PALETTE.text, 'left');
-    text('WASD move · Shift sprint · C crouch · E grab/escape · Click toss coin · P pause · M mute',
+    text('WASD move · Shift sprint · C crouch · E grab/crack/vent · Click coin · Q EMP · R smoke · P pause',
       FIELD.width - 26, FIELD.height - 36, 13, PALETTE.muted, 'right');
 
     // Alarm vignette pulse at HUNTED and above.
@@ -1384,6 +1513,8 @@ export function createRenderer(canvas) {
 
     drawFloors(state);
     drawExtractZone(state);
+    drawPatrolRoutes(state); // dotted guard loops: read the patrol before you move
+    drawVents(state);     // vent grates: the second route into watched rooms
     drawProps(state);     // statues, cases, desks, trees dress the rooms
     drawLasers(state);
     drawLoot(state);
@@ -1393,6 +1524,7 @@ export function createRenderer(canvas) {
     drawVaultDoors(state); // steel slabs + dials over the walls they seal
     drawCameraLabels(state); // pills over the walls, under the thief
     drawPlayer(state);
+    drawSmoke(state);     // smoke clouds swallow whoever stands in them
     drawEffects(state);
 
     // Soft vignette for depth.
@@ -1405,13 +1537,13 @@ export function createRenderer(canvas) {
     if (screen === SCREEN_TITLE) {
       drawHud(state, best);
       drawPanel('VAULT ZERO', PALETTE.playerTrim, [
-        'The Silent Extraction — a top-down heist',
+        'The Silent Extraction — a top-down heist across three floors',
         'Cross the bank, fill your bag, and vanish in the van.',
-        'Guards see in cones. Cameras feed the alarm. Lasers arm at HUNTED.',
-        'VAULT-CRACKING: locked vault doors guard the best loot — hold E to',
-        'spin the dial, release in the green three times to crack them open.',
-        'WASD move · Shift sprint · C crouch · hold E to grab, crack & escape',
-        'Mouse aims · click tosses a coin · heavier loot slows you down',
+        'Guards see in cones — their dotted patrol routes are drawn on the floor.',
+        'Cameras feed the alarm. Lasers arm at HUNTED. Vents are a second route in.',
+        'VAULT-CRACKING: hold E to spin the dial, release in the green ×3.',
+        'Tools at a cost: Q fires the EMP jammer (cameras die), R drops smoke.',
+        'WASD move · Shift sprint · C crouch · E grab/crack/vent/escape · click coin',
         state.level.name,
       ], 'Press SPACE or click to start the heist');
     } else if (screen === SCREEN_PAUSED) {
@@ -1426,7 +1558,9 @@ export function createRenderer(canvas) {
       ], 'Press SPACE or click to try the heist again');
     } else if (screen === SCREEN_WIN) {
       drawHud(state, best);
-      const next = state.levelIndex + 1 < 2 ? 'SPACE: rob the VAULT ANNEX next' : 'SPACE: back to the title';
+      const next = state.levelIndex + 1 < 3
+        ? `SPACE: rob ${state.levelIndex === 0 ? 'the VAULT ANNEX' : 'the SKY VAULT'} next`
+        : 'SPACE: back to the title — all three floors robbed';
       drawPanel('CLEAN GETAWAY!', '#7de8a0', [
         `Haul secured: $${state.player.haul.toLocaleString('en-US')}`,
         `Time: ${formatTime(state.elapsed)} · Detections: ${state.detections} · Peak alarm: ${Math.round(state.alarmPeak)}%`,

@@ -72,6 +72,29 @@ export const NOISE = {
 };
 
 /**
+ * TOOLS AT A COST: two limited gadgets beside the distraction coins. The EMP JAMMER
+ * (Q) kills every camera and laser tripwire for a few seconds — the window to cross a
+ * swept room or slip a doorway beam. The SMOKE BOMB (R) drops a cloud that blocks
+ * sight both ways: guards and cameras cannot see a thief standing in it, so it breaks
+ * a chase or covers a vault-crack. Both are scarce per floor, so spending one is a
+ * real decision, not a reflex.
+ */
+export const TOOLS = {
+  empCharges: 2,           // EMP pulses per floor
+  empSeconds: 6.0,         // cameras + lasers dead for this long
+  smokeCharges: 2,         // smoke bombs per floor
+  smokeSeconds: 5.0,       // how long a cloud hangs
+  smokeRadius: 92,         // px: sight is blocked inside the cloud
+};
+
+/** VENTS: paired wall grates. Stand at one and tap E to slip through to its pair —
+ *  a second route into rooms whose doors are watched. Slow and noisy enough that a
+ *  guard standing at the far end still makes it a gamble. */
+export const VENT = {
+  useRange: 34,            // px from the grate centre where the slip is possible
+};
+
+/**
  * VAULT-CRACKING: the signature heist skill. A locked vault door seals the best loot.
  * Stand at the door and HOLD E: the combination dial spins. RELEASE E while the needle
  * is inside the green zone to set one tumbler; set all three to swing the door open.
@@ -93,6 +116,7 @@ export const PALETTE = {
   floorVault: '#1d2733',
   floorOffice: '#2a2620',
   floorAnnex: '#1f2a26',
+  floorSky: '#1c2438',     // penthouse server floor: deep blue-black
   floorTileLine: 'rgba(255,255,255,0.045)',
   wall: '#3d4659',
   wallTop: '#5a6a86',
@@ -106,10 +130,10 @@ export const PALETTE = {
   playerBag: '#8a6a2f',
   guard: '#2e4a78',        // navy security uniform
   guardTrim: '#e8ecf2',    // white cap + badge
-  guardCone: 'rgba(255,214,90,0.15)',
-  guardConeHot: 'rgba(255,90,70,0.27)',
+  guardCone: 'rgba(255,214,90,0.21)',
+  guardConeHot: 'rgba(255,90,70,0.30)',
   camera: '#cfe4f7',
-  cameraCone: 'rgba(140,205,255,0.13)',
+  cameraCone: 'rgba(140,205,255,0.18)',
   cameraConeHot: 'rgba(255,80,80,0.28)',
   lootCash: '#58c472',
   lootGems: '#5fd4e8',
@@ -137,6 +161,13 @@ export const PALETTE = {
   treeLeaf: '#4f7a3d',
   treeLeafHi: '#6fa055',
   securityScreen: '#6eb4ff', // security-desk monitor glow
+  patrolDot: 'rgba(175,198,224,0.6)', // dotted patrol routes on the floor
+  vent: '#39424f',         // wall vent grate
+  ventSlat: '#9fb4c8',
+  smoke: 'rgba(180,190,205,0.30)', // smoke-bomb cloud
+  emp: '#b48ae8',          // EMP jammer violet
+  serverRack: '#232b38',   // penthouse server racks
+  serverLight: '#58dc9c',  // rack status lights
 };
 
 export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';

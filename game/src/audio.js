@@ -66,6 +66,10 @@ export function createAudio() {
     vaultTumbler() { tone(1180, 0.07, 'square', 0.14); setTimeout(() => tone(1568, 0.09, 'square', 0.12), 70); },
     vaultFail() { tone(160, 0.28, 'sawtooth', 0.18, 90); },
     vaultOpen() { sequence([196, 147, 262, 392], 0.12, 'triangle', 0.2); },
+    // Gadgets: the EMP's descending zap, the smoke bomb's soft pop, a vent's metal slip.
+    empPulse() { tone(1800, 0.35, 'sawtooth', 0.14, 120); },
+    smokePop() { tone(300, 0.25, 'sine', 0.16, 90); },
+    ventSlip() { tone(500, 0.12, 'square', 0.08, 900); },
     /**
      * The looping two-tone alarm. Level 0 = silent, 1 = suspicious (slow, quiet),
      * 2 = hunted, 3 = lockdown (fast, loud). Driven by the world's alarm meter.

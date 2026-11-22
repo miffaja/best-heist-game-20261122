@@ -1,13 +1,13 @@
-// The screenshot scenes behind ?shot=cover|camera|crack|extract. Each scene places real
+// The screenshot scenes behind ?shot=cover|caught|crack|extract. Each scene places real
 // entities with the world's staging helpers and then runs the ordinary simulation forward
 // for a fixed number of steps, so every frame is what the game itself renders — guards
 // patrol, cones sweep, meters fill — and the same seed always gives the same frame.
 //
 // Staging rule for every scene: the thief stands in open floor with at most one cone
 // touching him, cones point in different directions so they never stack into mud, and
-// each frame shows one mechanic legibly — coin toss, camera + lasers, VAULT-CRACKING
-// (hold E to spin the dial, release in the green, three tumblers), extraction —
-// instead of all of them at once.
+// each frame shows one mechanic legibly — coin toss, the fair caught moment,
+// VAULT-CRACKING (hold E to spin the dial, release in the green, three tumblers),
+// extraction — instead of all of them at once. The four frames span all three floors.
 import { CAMERA, STEP } from './config.js';
 import { SCREEN_OVER, SCREEN_PLAY, SCREEN_WIN } from './render.js';
 
@@ -65,79 +65,85 @@ function stageCover(world) {
 }
 
 /**
- * CAMERA — the thief caught in a surveillance cone inside the vault: red camera cone ON
- * the thief, alarm at HUNTED, the armed laser tripwire glowing across the vault doorway
- * beside him, and the vault guard radioed in to investigate.
+ * CAUGHT — the fair bust: LOCKDOWN, the vault guard's cone full red on the thief at
+ * arm's length, a second guard converging, the armed doorway laser behind him, and
+ * the CAUGHT report over it all. The moment is fair because the cone that made him
+ * is right there in the frame.
  */
-function stageCamera(world) {
+function stageCaught(world) {
   world.loadLevel(0);
   world.setElapsed(96);
-  world.setAlarm(68); // HUNTED band: lasers armed
-  world.openVault(0); // cracked his way into the vault — now the camera has him
-  world.giveLoot('cash');
-  // In the VAULT beside the doorway laser (x=868), under the vault camera: the CCTV
-  // cone is on the thief and the LASER beam is in frame at his left.
-  world.placePlayer(955, 208, -Math.PI / 2);
-  world.setGuard(2, 1030, 330, -1.9, 0.55, 'investigate'); // vault guard radioed in
-  world.state.guards[2].investigatePoint = { x: 955, y: 208 };
-  world.setGuard(1, 700, 150, 0.4, 0.0, 'patrol'); // gallery guard, cone sweeping away
-  aimCamera(world, 2, 0.62); // vault camera aimed at the thief's bearing
-  aimCamera(world, 1, -0.85); // gallery camera sweeping away from the cases
-  run(world, 10); // short run: the sweep has not yet carried the cone off the thief
-  return { screen: SCREEN_PLAY, best: 6500, rating: null };
+  world.setAlarm(92); // LOCKDOWN band: lasers armed, extra guard deployed
+  world.openVault(0); // he cracked in — and the vault camera had him the whole time
+  world.giveLoot('gold');
+  world.giveLoot('gems'); // $5,500 in the bag, about to be lost
+  world.setTools(0, 1); // the EMP is spent: it bought the vault, not the exit
+  world.state.detections = 2; // made twice on the way in — the report should say so
+  world.placePlayer(1000, 150, Math.PI); // cornered in the vault's open north lane
+  world.setGuard(2, 1062, 150, Math.PI, 1.0, 'chase'); // on him: cone red, "!" up
+  world.setGuard(1, 700, 150, 0.4, 0.4, 'investigate'); // gallery guard converging
+  world.state.guards[1].investigatePoint = { x: 1000, y: 150 };
+  aimCamera(world, 2, 0.62); // vault camera still on the thief
+  aimCamera(world, 1, -0.85);
+  run(world, 90); // the guard closes the last steps and lays a hand on him
+  return { screen: world.state.caught ? SCREEN_OVER : SCREEN_PLAY, best: 6500, rating: null };
 }
 
 /**
- * CRACK — floor 2, the vault annex: VAULT-CRACKING at the sealed core's north door.
- * The thief stands at the steel vault door with E held and the combination dial
- * spinning, needle inside the green zone, two of three tumblers already set —
- * CRACKING VAULT… 2/3 on the big overlay, VAULT ●●○ on the door itself. The core's
- * gold bars and star artifact wait behind the door; the core guard's cone points at
- * the far wall and the corridor guard has not reached him yet. One more clean
- * release and the vault swings open; a jammed one raises the alarm.
+ * CRACK — floor 3, the penthouse SKY VAULT: VAULT-CRACKING at the data core's north
+ * door, server racks humming in their lanes around him. The thief stands at the steel
+ * door with E held and the combination dial spinning, needle inside the green zone,
+ * two of three tumblers already set — CRACKING VAULT… 2/3 on the big overlay. The
+ * core's gold bars and second star artifact wait behind the door; the core guard's
+ * cone points at the far wall. One more clean release and the vault swings open; a
+ * jammed one raises the alarm.
  */
 function stageCrack(world) {
-  world.loadLevel(1);
+  world.loadLevel(2);
   world.setElapsed(130);
   world.setAlarm(60); // HUNTED band: lasers armed, cameras sweeping fast
-  world.giveLoot('gems'); // corridor gem case already in the bag
-  world.placePlayer(640, 196, Math.PI / 2); // at the north vault door, facing into the core
-  world.setGuard(4, 740, 440, 0.8, 0.0, 'patrol'); // core guard, cone at the far wall
-  world.setGuard(0, 300, 120, 0, 0.0, 'patrol'); // top corridor guard, still short of him
-  aimCamera(world, 0, -0.85); // top camera sweeping away from the core door
-  aimCamera(world, 1, 0.85); // bottom camera sweeping away from the core
-  aimCamera(world, 2, 0.85); // west camera sweeping south, off the thief
-  aimCamera(world, 3, -0.85); // east camera sweeping south, off the thief
+  world.giveLoot('gems'); // a lane gem case already in the bag
+  world.placePlayer(828, 300, 0); // at the core's north vault door, facing into the core
+  world.setGuard(4, 1140, 300, Math.PI, 0.0, 'patrol'); // core guard, cone along the racks
+  world.setGuard(3, 800, 560, -Math.PI / 2, 0.0, 'patrol'); // approach sweep, still short of him
+  world.setGuard(0, 180, 200, Math.PI / 2, 0.0, 'patrol'); // west lane, far away
+  aimCamera(world, 2, -0.85); // core camera sweeping away from the door
+  aimCamera(world, 0, 0.85);
+  aimCamera(world, 1, -0.85);
+  aimCamera(world, 3, 0.85);
   run(world, 2, HOLD); // E held: the dial starts spinning for real
   world.setVaultCrack(0, 2, 0.12); // two tumblers set, needle inside the green zone
-  return { screen: SCREEN_PLAY, best: 6500, rating: null };
+  return { screen: SCREEN_PLAY, best: 14000, rating: null };
 }
 
 /**
- * EXTRACT — the payoff: a real extraction channel completed at the van, ending on the
- * CLEAN GETAWAY report with haul, time and ghost rating.
+ * EXTRACT — the payoff, on floor 2: the vault annex core cracked and emptied, a real
+ * extraction channel completed at the van, ending on the CLEAN GETAWAY report with
+ * haul, time and ghost rating — and the ring corridor visible behind the panel.
  */
 function stageExtract(world) {
-  world.loadLevel(0);
+  world.loadLevel(1);
   world.setElapsed(184);
   world.setAlarm(12);
-  world.openVault(0); // the vault was cracked on the way through — the gold is his
-  world.giveLoot('gems');
+  world.openVault(0); // the core was cracked on the way through — the gold is his
   world.giveLoot('gold');
-  world.giveLoot('cash'); // $6,000 in the bag
+  world.giveLoot('gold');
+  world.giveLoot('artifact');
+  world.giveLoot('gems'); // $14,000 in the bag, weight 9 of 10
   world.placePlayer(110, 640, Math.PI); // at the van
-  world.setGuard(0, 210, 180, -Math.PI / 2, 0.0, 'patrol'); // lobby guard far north
+  world.setGuard(0, 640, 120, 0, 0.0, 'patrol'); // top corridor guard far north
+  world.setGuard(1, 1130, 620, Math.PI, 0.0, 'patrol'); // bottom corridor, far east
   run(world, 210, HOLD); // hold E through the 3s channel -> extracted
   const over = world.state.caught;
   return {
     screen: over ? SCREEN_OVER : SCREEN_WIN,
-    best: Math.max(6500, world.state.player.haul),
+    best: Math.max(14000, world.state.player.haul),
     rating: world.ghostRating(),
   };
 }
 
 export function stageShot(name, world) {
-  if (name === 'camera') return stageCamera(world);
+  if (name === 'caught' || name === 'camera') return stageCaught(world);
   if (name === 'crack' || name === 'loot') return stageCrack(world); // 'loot' kept as an alias
   if (name === 'extract') return stageExtract(world);
   return stageCover(world);

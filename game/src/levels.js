@@ -124,6 +124,13 @@ const groundFloor = {
     { x1: 868, y1: 184, x2: 868, y2: 232 },  // vault doorway beam
     { x1: 604, y1: 448, x2: 652, y2: 448 },  // gallery-to-office beam
   ],
+  // Paired vent grates (0<->1, 2<->3): a second route past watched doors.
+  vents: [
+    { x: 52, y: 300 },    // lobby west wall...
+    { x: 830, y: 300 },   // ...out in the gallery, past the lobby patrol
+    { x: 470, y: 660 },   // records office south...
+    { x: 1230, y: 140 },  // ...into the vault's north-east corner, behind the racks
+  ],
 };
 
 const vaultAnnex = {
@@ -203,6 +210,103 @@ const vaultAnnex = {
     { x1: 616, y1: 492, x2: 664, y2: 492 },  // core south door
     { x1: 640, y1: 60, x2: 640, y2: 180 },   // top corridor beam
   ],
+  vents: [
+    { x: 52, y: 360 },    // west corridor...
+    { x: 1228, y: 360 },  // ...to the east corridor, skipping the ring
+    { x: 300, y: 52 },    // top corridor...
+    { x: 640, y: 452 },   // ...INSIDE the sealed core (the bold route in)
+  ],
 };
 
-export const LEVELS = [groundFloor, vaultAnnex];
+/**
+ * Floor 3 — the penthouse server vault. Rows of humming server racks break the floor
+ * into lanes; two vault doors seal the data core where the second star artifact and
+ * the heaviest gold sit. Five guards, four cameras, a laser grid across the lanes,
+ * and a vent pair that drops the thief behind the core's racks.
+ */
+const skyVault = {
+  name: 'MERIDIAN SKY VAULT — PENTHOUSE',
+  subtitle: 'Floor 3 · server lanes around the sealed data core',
+  spawn: { x: 110, y: 630 },
+  extract: { x: 36, y: 592, w: 150, h: 92 },
+  rooms: [
+    { x: 24, y: 24, w: 1232, h: 672, tint: 'floorSky', label: 'SERVER FLOOR', floor: 'steel' },
+    { x: 876, y: 180, w: 380, h: 360, tint: 'floorVault', label: 'DATA CORE', floor: 'steel' },
+  ],
+  props: [
+    { kind: 'server', x: 300, y: 120 },
+    { kind: 'server', x: 300, y: 300 },
+    { kind: 'server', x: 300, y: 480 },
+    { kind: 'server', x: 560, y: 120 },
+    { kind: 'server', x: 560, y: 480 },
+    { kind: 'server', x: 760, y: 300 },
+    { kind: 'security', x: 120, y: 120 },
+    { kind: 'case', x: 120, y: 300 },
+    { kind: 'statue', x: 1222, y: 62 },
+    { kind: 'statue', x: 910, y: 62 },
+    { kind: 'tree', x: 660, y: 640 },
+    { kind: 'tree', x: 120, y: 660 },
+  ],
+  vaultDoors: [
+    { x: 868, y: 300, blocker: { x: 860, y: 272, w: 16, h: 56, kind: 'wall' } },
+    { x: 868, y: 440, blocker: { x: 860, y: 412, w: 16, h: 56, kind: 'wall' } },
+  ],
+  walls: [
+    ...border(),
+    // The data core: east box sealed by two vault doors on its west wall.
+    ...vwall(860, 180, 540, [[272, 328], [412, 468]]),
+    ...hwall(180, 876, 1256, []),
+    ...hwall(540, 876, 1256, []),
+    // Server-rack lanes (tall: they block sight and make the lanes).
+    { x: 240, y: 100, w: 130, h: 34, kind: 'desk' },
+    { x: 240, y: 280, w: 130, h: 34, kind: 'desk' },
+    { x: 240, y: 460, w: 130, h: 34, kind: 'desk' },
+    { x: 500, y: 100, w: 130, h: 34, kind: 'desk' },
+    { x: 500, y: 460, w: 130, h: 34, kind: 'desk' },
+    { x: 700, y: 280, w: 130, h: 34, kind: 'desk' },
+    // Low cooling units: crouch cover in the open lanes.
+    { x: 420, y: 190, w: 90, h: 26, kind: 'low' },
+    { x: 420, y: 390, w: 90, h: 26, kind: 'low' },
+    { x: 640, y: 560, w: 90, h: 26, kind: 'low' },
+    // Core racks.
+    { x: 940, y: 260, w: 120, h: 26, kind: 'desk' },
+    { x: 1080, y: 380, w: 120, h: 26, kind: 'desk' },
+    { x: 940, y: 460, w: 120, h: 26, kind: 'desk' },
+  ],
+  loot: [
+    { kind: 'cash', x: 160, y: 200 },
+    { kind: 'gems', x: 430, y: 120 },
+    { kind: 'gems', x: 700, y: 200 },
+    { kind: 'cash', x: 430, y: 520 },
+    { kind: 'gold', x: 1000, y: 300 },
+    { kind: 'gold', x: 1140, y: 420 },
+    { kind: 'artifact', x: 1066, y: 360 },
+  ],
+  guards: [
+    { path: [[180, 120], [180, 560]] },                          // west lane
+    { path: [[440, 90], [440, 300], [700, 300], [700, 90]] },    // north lanes loop
+    { path: [[440, 620], [820, 620], [820, 420], [440, 420]] },  // south lanes loop
+    { path: [[800, 120], [800, 600]] },                          // core approach sweep
+    { path: [[950, 240], [1200, 240], [1200, 480], [950, 480]] },// inside the data core
+  ],
+  cameras: [
+    { x: 320, y: 32, baseAngle: Math.PI / 2 },
+    { x: 640, y: 32, baseAngle: Math.PI / 2 },
+    { x: 1066, y: 32, baseAngle: Math.PI / 2 },
+    { x: 1066, y: 688, baseAngle: -Math.PI / 2 },
+  ],
+  lasers: [
+    { x1: 868, y1: 276, x2: 868, y2: 324 },  // core north door beam
+    { x1: 868, y1: 416, x2: 868, y2: 464 },  // core south door beam
+    { x1: 375, y1: 150, x2: 375, y2: 260 },  // west lane beam
+    { x1: 700, y1: 350, x2: 700, y2: 440 },  // mid lane beam
+  ],
+  vents: [
+    { x: 52, y: 480 },    // west wall...
+    { x: 1228, y: 520 },  // ...inside the data core's south-east corner
+    { x: 640, y: 52 },    // north wall...
+    { x: 640, y: 668 },   // ...to the south wall, across the whole floor
+  ],
+};
+
+export const LEVELS = [groundFloor, vaultAnnex, skyVault];

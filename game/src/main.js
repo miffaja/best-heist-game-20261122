@@ -12,10 +12,10 @@ import { LEVELS } from './levels.js';
 import { createRandom } from './random.js';
 import {
   createWorld, EVENT_ALARM_UP, EVENT_CAMERA, EVENT_CAUGHT, EVENT_COIN_LAND,
-  EVENT_EXTRACTED, EVENT_GUARD_ALERT, EVENT_LASER, EVENT_LOOT,
-  EVENT_VAULT_FAIL, EVENT_VAULT_OPEN, EVENT_VAULT_TUMBLER,
+  EVENT_EMP, EVENT_EXTRACTED, EVENT_GUARD_ALERT, EVENT_LASER, EVENT_LOOT,
+  EVENT_SMOKE, EVENT_VAULT_FAIL, EVENT_VAULT_OPEN, EVENT_VAULT_TUMBLER, EVENT_VENT,
 } from './world.js';
-import { ACTION_CONFIRM, ACTION_MUTE, ACTION_PAUSE, createInput } from './input.js';
+import { ACTION_CONFIRM, ACTION_EMP, ACTION_MUTE, ACTION_PAUSE, ACTION_SMOKE, createInput } from './input.js';
 import { createRenderer, SCREEN_OVER, SCREEN_PAUSED, SCREEN_PLAY, SCREEN_TITLE, SCREEN_WIN } from './render.js';
 import { createAudio } from './audio.js';
 import { stageShot } from './shots.js';
@@ -103,8 +103,15 @@ function runGame() {
     announce(`Clean getaway. Haul ${world.state.player.haul} dollars. Ghost rating ${rating}.`);
   }
 
+  // One-shot gadget presses, handed to the next world step (a press between frames
+  // must fire exactly once, in the simulation, not in the UI layer).
+  let pendingEmp = false;
+  let pendingSmoke = false;
+
   function handleActions() {
     const actions = input.takeActions();
+    if (actions & ACTION_EMP) pendingEmp = true;
+    if (actions & ACTION_SMOKE) pendingSmoke = true;
     if (actions & ACTION_MUTE) {
       const muted = audio.toggleMute();
       announce(muted ? 'Sound off.' : 'Sound on.');
@@ -132,6 +139,9 @@ function runGame() {
     if (events & EVENT_VAULT_TUMBLER) audio.vaultTumbler();
     if (events & EVENT_VAULT_FAIL) audio.vaultFail();
     if (events & EVENT_VAULT_OPEN) audio.vaultOpen();
+    if (events & EVENT_EMP) audio.empPulse();
+    if (events & EVENT_SMOKE) audio.smokePop();
+    if (events & EVENT_VENT) audio.ventSlip();
   }
 
   function step() {
@@ -141,7 +151,11 @@ function runGame() {
     const aimAngle = mouse.seen ? Math.atan2(mouse.y - p.y, mouse.x - p.x) : undefined;
     const toss = input.takeToss();
     if (toss) audio.coinToss();
-    const events = world.step(STEP, { ...snap, aimAngle, toss });
+    const emp = pendingEmp;
+    const smoke = pendingSmoke;
+    pendingEmp = false;
+    pendingSmoke = false;
+    const events = world.step(STEP, { ...snap, aimAngle, toss, emp, smoke });
     playEvents(events);
     if (events & EVENT_CAUGHT) endCaught();
     else if (events & EVENT_EXTRACTED) endExtracted();
