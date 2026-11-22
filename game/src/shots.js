@@ -30,15 +30,16 @@ function stageCover(world) {
   world.setElapsed(42);
   world.setAlarm(45); // SUSPICIOUS band
   world.giveLoot('gems'); // one case already in the bag
-  world.placePlayer(640, 262, 0.15); // crossing the gallery, heading right
-  world.setGuard(1, 500, 392, -0.85, 0.45, 'patrol'); // gallery guard turning toward the thief
+  world.placePlayer(650, 275, 0.15); // crossing the gallery rug, heading right toward the gem case
+  world.setGuard(1, 495, 395, -0.85, 0.5, 'investigate'); // gallery guard turning toward the thief, "?" up
+  world.state.guards[1].investigatePoint = { x: 650, y: 275 };
   world.setGuard(0, 210, 300, Math.PI / 2, 0.1, 'patrol'); // lobby guard mid-patrol
   world.setGuard(2, 1060, 150, 2.6, 0.0, 'patrol'); // vault guard
   aimCamera(world, 0, 0.25); // lobby camera sweeping the teller line
-  aimCamera(world, 1, 0.35); // gallery camera sweeping toward the thief
+  aimCamera(world, 1, 0.3); // gallery camera sweeping toward the thief
   aimCamera(world, 2, -0.5); // vault camera
-  aimCamera(world, 3, 0.3); // office camera
-  run(world, 22);
+  aimCamera(world, 3, 0.3); // office camera (fully visible mid-frame)
+  run(world, 14);
   return { screen: SCREEN_PLAY, best: 6500, rating: null };
 }
 
@@ -51,12 +52,16 @@ function stageCamera(world) {
   world.setElapsed(96);
   world.setAlarm(68); // HUNTED band: lasers armed
   world.giveLoot('cash');
-  world.placePlayer(640, 185, Math.PI / 2); // directly under the gallery camera
-  world.setGuard(1, 820, 360, -2.2, 0.5, 'investigate');
-  world.state.guards[1].investigatePoint = { x: 640, y: 185 };
-  world.setGuard(2, 950, 360, -1.4, 0.0, 'patrol');
-  aimCamera(world, 1, 0.0); // dead centre on the thief
-  run(world, 30);
+  // In the VAULT, dead centre under the vault camera: CCTV cone ON the thief,
+  // alarm climbing, the armed laser across the vault doorway at frame left.
+  // (1010,205) keeps the thief + YOU tag clear of the minimap in the corner.
+  world.placePlayer(1010, 205, -Math.PI / 2);
+  world.setGuard(2, 950, 330, -1.1, 0.55, 'investigate'); // vault guard radioed in
+  world.state.guards[2].investigatePoint = { x: 1010, y: 205 };
+  world.setGuard(1, 700, 150, 0.4, 0.0, 'patrol'); // gallery guard, cone sweeping away
+  aimCamera(world, 2, 0.31); // vault camera aimed at the thief's bearing
+  aimCamera(world, 1, -0.4); // gallery camera sweeping the cases
+  run(world, 10); // short run: the sweep has not yet carried the cone off the thief
   return { screen: SCREEN_PLAY, best: 6500, rating: null };
 }
 

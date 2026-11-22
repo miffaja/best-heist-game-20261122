@@ -59,6 +59,16 @@ export function createRenderer(canvas) {
       ctx.fillStyle = PALETTE[room.tint];
       ctx.fillRect(room.x, room.y, room.w, room.h);
     }
+    // Checker tile variation: alternating faint cells so floors read as real tile,
+    // not flat colour. Deterministic from cell coordinates — no flicker.
+    for (let ty = 24; ty < FIELD.height - 24; ty += 48) {
+      for (let tx = 24; tx < FIELD.width - 24; tx += 48) {
+        if (((tx / 48) + (ty / 48)) % 2 === 0) {
+          ctx.fillStyle = 'rgba(255,255,255,0.028)';
+          ctx.fillRect(tx, ty, 48, 48);
+        }
+      }
+    }
     // Floor tile grid.
     ctx.strokeStyle = PALETTE.floorTileLine;
     ctx.lineWidth = 1;
@@ -66,8 +76,50 @@ export function createRenderer(canvas) {
     for (let x = 24; x < FIELD.width - 24; x += 48) { ctx.moveTo(x, 24); ctx.lineTo(x, FIELD.height - 24); }
     for (let y = 24; y < FIELD.height - 24; y += 48) { ctx.moveTo(24, y); ctx.lineTo(FIELD.width - 24, y); }
     ctx.stroke();
-    // Room nameplates, faint so they read as floor markings.
+    // Rugs: a gallery runner and a lobby rug, drawn under furniture and loot.
+    if (state.levelIndex === 0) {
+      ctx.fillStyle = 'rgba(122,46,58,0.5)';
+      ctx.fillRect(452, 168, 380, 120);
+      ctx.strokeStyle = 'rgba(232,178,58,0.45)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(458, 174, 368, 108);
+      ctx.fillStyle = 'rgba(46,74,120,0.45)';
+      ctx.fillRect(80, 180, 250, 150);
+      ctx.strokeStyle = 'rgba(159,180,200,0.35)';
+      ctx.strokeRect(86, 186, 238, 138);
+    } else {
+      ctx.fillStyle = 'rgba(122,46,58,0.4)';
+      ctx.fillRect(470, 252, 340, 216);
+      ctx.strokeStyle = 'rgba(232,178,58,0.4)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(478, 260, 324, 200);
+    }
+    // The vault door: a steel circle with spokes, on the vault room's wall.
+    const door = state.levelIndex === 0 ? { x: 880, y: 120 } : { x: 640, y: 232 };
+    ctx.fillStyle = '#39424f';
+    ctx.beginPath();
+    ctx.arc(door.x, door.y, 26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#9fb4c8';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(door.x, door.y, 22, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 2.5;
+    for (let i = 0; i < 4; i += 1) {
+      const a = (i / 4) * Math.PI * 2 + 0.4;
+      ctx.beginPath();
+      ctx.moveTo(door.x, door.y);
+      ctx.lineTo(door.x + Math.cos(a) * 20, door.y + Math.sin(a) * 20);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#e8b23a';
+    ctx.beginPath();
+    ctx.arc(door.x, door.y, 5, 0, Math.PI * 2);
+    ctx.fill();
     ctx.textBaseline = 'top';
+    text('VAULT', door.x, door.y + 30, 11, '#9fb4c8', 'center', true);
+    // Room nameplates, faint so they read as floor markings.
     for (const room of state.level.rooms) {
       ctx.globalAlpha = 0.35;
       text(room.label, room.x + 14, room.y + 10, 15, PALETTE.muted, 'left', true);
@@ -97,8 +149,25 @@ export function createRenderer(canvas) {
     ctx.arc(vx + 20, vy + 42, 8, 0, Math.PI * 2);
     ctx.arc(vx + 78, vy + 42, 8, 0, Math.PI * 2);
     ctx.fill();
+    // Side door + headlights + hazard stripe.
+    ctx.strokeStyle = 'rgba(16,20,28,0.6)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(vx + 30, vy + 22, 26, 16);
+    ctx.fillStyle = '#ffe9a8';
+    ctx.fillRect(vx + 92, vy + 10, 4, 8);
+    ctx.fillRect(vx + 92, vy + 24, 4, 8);
+    ctx.fillStyle = '#e8b23a';
+    ctx.fillRect(vx, vy + 36, 96, 3);
     ctx.textBaseline = 'top';
     text('GETAWAY VAN', zone.x + zone.w / 2, zone.y + 4, 13, '#7de8a0', 'center', true);
+  }
+
+  /** Deterministic 0..1 hash from two numbers (stable desk clutter, no flicker). */
+  function hash2(a, b) {
+    let h = (a * 374761393 + b * 668265263) | 0;
+    h = (h ^ (h >> 13)) | 0;
+    h = Math.imul(h, 1274126177);
+    return ((h ^ (h >> 16)) >>> 0) / 4294967296;
   }
 
   function drawWalls(state) {
@@ -108,19 +177,73 @@ export function createRenderer(canvas) {
         ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
         ctx.fillStyle = PALETTE.wallTop;
         ctx.fillRect(rect.x, rect.y, rect.w, Math.min(5, rect.h));
+        ctx.fillRect(rect.x, rect.y, Math.min(5, rect.w), rect.h);
+        // Wall trim: a gold pinstripe + brick ticks along long walls.
+        ctx.fillStyle = 'rgba(232,178,58,0.28)';
+        if (rect.w > rect.h) ctx.fillRect(rect.x, rect.y + rect.h - 3, rect.w, 2);
+        else ctx.fillRect(rect.x + rect.w - 3, rect.y, 2, rect.h);
         ctx.strokeStyle = PALETTE.wallEdge;
         ctx.lineWidth = 1;
         ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
       } else if (rect.kind === 'desk') {
+        // Wooden desk / vault rack with papers, a monitor and small clutter.
         ctx.fillStyle = PALETTE.desk;
         ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
         ctx.fillStyle = PALETTE.deskTop;
         ctx.fillRect(rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6);
-      } else { // low cover: planter / display case
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
+        const wide = rect.w >= rect.h;
+        const along = wide ? rect.w : rect.h;
+        // Papers.
+        ctx.fillStyle = '#e8ecf2';
+        for (let i = 0; i < 3; i += 1) {
+          const t = 0.12 + hash2(rect.x + i * 7, rect.y) * 0.7;
+          const px = wide ? rect.x + along * t : rect.x + 6;
+          const py = wide ? rect.y + 6 : rect.y + along * t;
+          ctx.fillRect(px, py, wide ? 16 : 12, wide ? 11 : 16);
+        }
+        // Monitor with a glowing screen.
+        const mx = wide ? rect.x + along * 0.45 : rect.x + 5;
+        const my = wide ? rect.y + 5 : rect.y + along * 0.45;
+        ctx.fillStyle = '#10141c';
+        ctx.fillRect(mx, my, wide ? 26 : 16, wide ? 16 : 26);
+        ctx.fillStyle = '#6eb4ff';
+        ctx.fillRect(mx + 3, my + 3, wide ? 20 : 10, wide ? 10 : 20);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillRect(mx + 3, my + 3, wide ? 20 : 10, 3);
+        // Gold ingots / boxes on vault racks.
+        ctx.fillStyle = '#f2c94c';
+        const gx = wide ? rect.x + along * 0.78 : rect.x + 7;
+        const gy = wide ? rect.y + 7 : rect.y + along * 0.78;
+        ctx.fillRect(gx, gy, 14, 7);
+        ctx.fillRect(gx + 3, gy - 6, 10, 6);
+      } else { // low cover: planter with foliage / glass display case
         ctx.fillStyle = PALETTE.cover;
         ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
         ctx.fillStyle = PALETTE.coverTop;
         ctx.fillRect(rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6);
+        // Foliage blobs (deterministic per rect).
+        ctx.fillStyle = '#7a9a58';
+        const blobs = Math.max(3, Math.floor(Math.max(rect.w, rect.h) / 18));
+        for (let i = 0; i < blobs; i += 1) {
+          const bx = rect.x + 8 + hash2(rect.x * 3 + i, rect.y) * (rect.w - 16);
+          const by = rect.y + 8 + hash2(rect.x, rect.y * 5 + i) * (rect.h - 16);
+          ctx.beginPath();
+          ctx.arc(bx, by, 5 + hash2(i, rect.x) * 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Glass shine diagonal.
+        ctx.strokeStyle = 'rgba(207,228,247,0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(rect.x + 6, rect.y + rect.h - 6);
+        ctx.lineTo(rect.x + rect.w * 0.45, rect.y + 5);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
       }
     }
   }
@@ -152,13 +275,27 @@ export function createRenderer(canvas) {
     for (const item of state.loot) {
       if (item.taken) continue;
       const { x, y } = item;
+      // Pedestal: a dark plinth with a gold rim under every loot target.
+      ctx.fillStyle = '#2a3040';
+      ctx.fillRect(x - 18, y + 8, 36, 10);
+      ctx.fillStyle = '#e8b23a';
+      ctx.fillRect(x - 18, y + 8, 36, 3);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(x, y + 19, 20, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
       // Glow so loot targets read at a glance (and in screenshots).
-      ctx.globalAlpha = 0.25 * pulse;
+      ctx.globalAlpha = 0.28 * pulse;
       ctx.fillStyle = item.kind === 'cash' ? PALETTE.lootCash : item.kind === 'gems' ? PALETTE.lootGems : item.kind === 'gold' ? PALETTE.lootGold : PALETTE.lootArtifact;
       ctx.beginPath();
-      ctx.arc(x, y, 20, 0, Math.PI * 2);
+      ctx.arc(x, y, 24, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
+      ctx.strokeStyle = `rgba(242,201,76,${(0.5 * pulse).toFixed(3)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, 21, 0, Math.PI * 2);
+      ctx.stroke();
       if (item.kind === 'cash') {
         ctx.fillStyle = PALETTE.lootCash;
         ctx.fillRect(x - 13, y - 8, 26, 16);
@@ -203,130 +340,326 @@ export function createRenderer(canvas) {
         ctx.closePath();
         ctx.fill();
       }
-      // Value tag.
+      // Value tag on a dark pill so it reads at thumbnail size.
       ctx.textBaseline = 'top';
-      text(`$${item.value.toLocaleString('en-US')}`, x, y + 15, 11, PALETTE.text, 'center', true);
+      const tag = `$${item.value.toLocaleString('en-US')}`;
+      ctx.font = `700 12px ${FONT}`;
+      const tagW = ctx.measureText(tag).width + 12;
+      ctx.fillStyle = 'rgba(11,14,20,0.82)';
+      ctx.fillRect(x - tagW / 2, y + 20, tagW, 17);
+      ctx.strokeStyle = 'rgba(242,201,76,0.6)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - tagW / 2 + 0.5, y + 20.5, tagW - 1, 16);
+      text(tag, x, y + 22, 12, '#f2c94c', 'center', true);
     }
   }
 
-  /** A vision cone as a raycast fan that stops at walls — the same geometry the rules use. */
-  function drawCone(state, x, y, angle, range, halfAngle, fill) {
+  /** A vision cone as a raycast fan that stops at walls — the same geometry the rules use.
+   *  Camera cones get CCTV scan-line arcs so they never read as guard cones. */
+  function drawCone(state, x, y, angle, range, halfAngle, fill, scanLines) {
     const rays = 26;
+    const dists = [];
     ctx.fillStyle = fill;
     ctx.beginPath();
     ctx.moveTo(x, y);
     for (let i = 0; i <= rays; i += 1) {
       const a = angle - halfAngle + (2 * halfAngle * i) / rays;
       const d = rayDistance(state.walls, x, y, a, range);
+      dists.push(d);
       ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
     }
     ctx.closePath();
     ctx.fill();
+    // Bright rim so the cone edge reads at thumbnail size.
+    ctx.strokeStyle = scanLines ? 'rgba(207,228,247,0.55)' : 'rgba(255,214,90,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    if (scanLines) {
+      // Concentric scan arcs at 1/3 and 2/3 range, clipped to the fan's own distances.
+      ctx.strokeStyle = 'rgba(207,228,247,0.4)';
+      ctx.lineWidth = 1.5;
+      for (const frac of [0.36, 0.66]) {
+        ctx.beginPath();
+        for (let i = 0; i <= rays; i += 1) {
+          const a = angle - halfAngle + (2 * halfAngle * i) / rays;
+          const d = dists[i] * frac;
+          const px = x + Math.cos(a) * d;
+          const py = y + Math.sin(a) * d;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+      // Centre reticle line down the cone axis.
+      ctx.strokeStyle = 'rgba(207,228,247,0.35)';
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.cos(angle) * dists[Math.floor(rays / 2)], y + Math.sin(angle) * dists[Math.floor(rays / 2)]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
 
   function drawGuards(state) {
     for (const guard of state.guards) {
       const hot = guard.mode === 'chase' || guard.meter > 0.65;
-      drawCone(state, guard.x, guard.y, guard.angle, GUARD.viewRange, GUARD.viewHalfAngle,
-        hot ? PALETTE.guardConeHot : PALETTE.guardCone);
+      // Flashlight origin: the cone starts at the guard's front, not the body centre.
+      const fx = guard.x + Math.cos(guard.angle) * (GUARD.radius + 2);
+      const fy = guard.y + Math.sin(guard.angle) * (GUARD.radius + 2);
+      drawCone(state, fx, fy, guard.angle, GUARD.viewRange, GUARD.viewHalfAngle,
+        hot ? PALETTE.guardConeHot : PALETTE.guardCone, false);
     }
     for (const guard of state.guards) {
-      // Soft shadow, body, cap, facing tick.
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      const r = GUARD.radius;
+      const a = guard.angle;
+      const px = Math.cos(a + Math.PI / 2);
+      const py = Math.sin(a + Math.PI / 2);
+      // Soft shadow.
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
       ctx.beginPath();
-      ctx.ellipse(guard.x, guard.y + 5, 13, 9, 0, 0, Math.PI * 2);
+      ctx.ellipse(guard.x, guard.y + 6, r, r * 0.7, 0, 0, Math.PI * 2);
       ctx.fill();
+      // Shoulders (uniform bulk) either side of the body.
+      ctx.fillStyle = '#243a5e';
+      ctx.beginPath();
+      ctx.arc(guard.x + px * (r - 3), guard.y + py * (r - 3), 7, 0, Math.PI * 2);
+      ctx.arc(guard.x - px * (r - 3), guard.y - py * (r - 3), 7, 0, Math.PI * 2);
+      ctx.fill();
+      // Body: navy uniform.
       ctx.fillStyle = PALETTE.guard;
       ctx.beginPath();
-      ctx.arc(guard.x, guard.y, GUARD.radius, 0, Math.PI * 2);
+      ctx.arc(guard.x, guard.y, r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = PALETTE.guardTrim;
+      ctx.strokeStyle = '#0a0d13';
       ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(guard.x, guard.y, GUARD.radius - 2, guard.angle - 0.7, guard.angle + 0.7);
       ctx.stroke();
+      // Belt / vest stripe across the back.
+      ctx.strokeStyle = 'rgba(232,236,242,0.5)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(guard.x, guard.y, r - 5, a + Math.PI - 0.8, a + Math.PI + 0.8);
+      ctx.stroke();
+      // Head + white cap with brim toward facing.
+      ctx.fillStyle = '#d9a877';
+      ctx.beginPath();
+      ctx.arc(guard.x + Math.cos(a) * 3, guard.y + Math.sin(a) * 3, 8, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = PALETTE.guardTrim;
       ctx.beginPath();
-      ctx.arc(guard.x + Math.cos(guard.angle) * 7, guard.y + Math.sin(guard.angle) * 7, 3.5, 0, Math.PI * 2);
+      ctx.arc(guard.x + Math.cos(a) * 3, guard.y + Math.sin(a) * 3, 8, a - 1.9, a + 1.9);
       ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(guard.x + Math.cos(a) * 9, guard.y + Math.sin(a) * 9);
+      ctx.lineTo(guard.x + Math.cos(a - 0.5) * (r + 4), guard.y + Math.sin(a - 0.5) * (r + 4));
+      ctx.lineTo(guard.x + Math.cos(a + 0.5) * (r + 4), guard.y + Math.sin(a + 0.5) * (r + 4));
+      ctx.closePath();
+      ctx.fill();
+      // Badge dot + flashlight at the front.
+      ctx.fillStyle = '#f2c94c';
+      ctx.beginPath();
+      ctx.arc(guard.x + px * 6 - Math.cos(a) * 2, guard.y + py * 6 - Math.sin(a) * 2, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff6d8';
+      ctx.beginPath();
+      ctx.arc(guard.x + Math.cos(a) * (r + 2), guard.y + Math.sin(a) * (r + 2), 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
       // Detection meter arc over the head: yellow filling to red.
       if (guard.meter > 0.02) {
-        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 4.5;
         ctx.beginPath();
-        ctx.arc(guard.x, guard.y - 20, 8, Math.PI, Math.PI * 2);
+        ctx.arc(guard.x, guard.y - r - 8, 9, Math.PI, Math.PI * 2);
         ctx.stroke();
         ctx.strokeStyle = guard.meter > 0.65 ? '#ff4d5e' : '#f2c94c';
         ctx.beginPath();
-        ctx.arc(guard.x, guard.y - 20, 8, Math.PI, Math.PI + Math.PI * guard.meter);
+        ctx.arc(guard.x, guard.y - r - 8, 9, Math.PI, Math.PI + Math.PI * guard.meter);
         ctx.stroke();
       }
-      ctx.textBaseline = 'bottom';
-      if (guard.mode === 'chase') text('!', guard.x, guard.y - 28, 18, '#ff4d5e', 'center', true);
-      else if (guard.mode === 'investigate') text('?', guard.x, guard.y - 28, 16, '#f2c94c', 'center', true);
+      // ? / ! state badge on a dark pill, readable at thumbnail size.
+      if (guard.mode === 'chase' || guard.mode === 'investigate') {
+        const mark = guard.mode === 'chase' ? '!' : '?';
+        const color = guard.mode === 'chase' ? '#ff4d5e' : '#f2c94c';
+        ctx.fillStyle = 'rgba(11,14,20,0.85)';
+        ctx.beginPath();
+        ctx.arc(guard.x, guard.y - r - 22, 11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.textBaseline = 'middle';
+        text(mark, guard.x, guard.y - r - 21, 17, color, 'center', true);
+      }
     }
   }
 
   function drawCameras(state) {
     for (const camera of state.cameras) {
-      drawCone(state, camera.x, camera.y, camera.angle, CAMERA.viewRange, CAMERA.viewHalfAngle,
-        camera.seeing ? PALETTE.cameraConeHot : PALETTE.cameraCone);
+      // Housing sits proud of the wall mount so wall cameras stay visible below the HUD.
+      const hx = camera.x + Math.cos(camera.baseAngle) * 20;
+      const hy = camera.y + Math.sin(camera.baseAngle) * 20;
+      drawCone(state, hx, hy, camera.angle, CAMERA.viewRange, CAMERA.viewHalfAngle,
+        camera.seeing ? PALETTE.cameraConeHot : PALETTE.cameraCone, true);
     }
     for (const camera of state.cameras) {
-      ctx.fillStyle = '#39424f';
-      ctx.fillRect(camera.x - 8, camera.y - 8, 16, 16);
-      ctx.fillStyle = PALETTE.camera;
+      const hx = camera.x + Math.cos(camera.baseAngle) * 20;
+      const hy = camera.y + Math.sin(camera.baseAngle) * 20;
+      const a = camera.angle;
+      // Sweep-range arc: where this camera can look, faint on the floor.
+      ctx.strokeStyle = 'rgba(140,205,255,0.18)';
+      ctx.lineWidth = 6;
       ctx.beginPath();
-      ctx.arc(camera.x + Math.cos(camera.angle) * 5, camera.y + Math.sin(camera.angle) * 5, 5, 0, Math.PI * 2);
+      ctx.arc(hx, hy, 34, camera.baseAngle - CAMERA.sweepHalfAngle, camera.baseAngle + CAMERA.sweepHalfAngle);
+      ctx.stroke();
+      // Wall mount arm from the mount point to the housing.
+      ctx.strokeStyle = '#5a6a86';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(camera.x, camera.y);
+      ctx.lineTo(hx, hy);
+      ctx.stroke();
+      ctx.fillStyle = '#39424f';
+      ctx.beginPath();
+      ctx.arc(camera.x, camera.y, 6, 0, Math.PI * 2);
       ctx.fill();
-      // Recording LED: blinks, solid red while the thief is in frame.
+      // Housing: a big rounded box rotated to the sweep angle.
+      ctx.save();
+      ctx.translate(hx, hy);
+      ctx.rotate(a);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(-13, -8, 30, 20);
+      ctx.fillStyle = '#d7e3ef';
+      ctx.fillRect(-14, -10, 30, 20);
+      ctx.fillStyle = '#8fa8c0';
+      ctx.fillRect(-14, -10, 30, 5);
+      ctx.strokeStyle = '#10141c';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-14, -10, 30, 20);
+      // Lens barrel + glass.
+      ctx.fillStyle = '#10141c';
+      ctx.beginPath();
+      ctx.arc(14, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = camera.seeing ? '#ff4d5e' : '#6eb4ff';
+      ctx.beginPath();
+      ctx.arc(14, 0, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.beginPath();
+      ctx.arc(12.5, -1.5, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      // REC dot: blinks, solid red while the thief is in frame.
       const on = camera.seeing || Math.floor(state.elapsed * 2) % 2 === 0;
       ctx.fillStyle = on ? '#ff4d5e' : '#5a2b30';
       ctx.beginPath();
-      ctx.arc(camera.x, camera.y, 2.5, 0, Math.PI * 2);
+      ctx.arc(hx - Math.cos(camera.baseAngle) * 8, hy - Math.sin(camera.baseAngle) * 8 - 12, 4, 0, Math.PI * 2);
       ctx.fill();
-      ctx.textBaseline = 'top';
-      text('CAM', camera.x, camera.y + 10, 9, PALETTE.muted, 'center', true);
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      // "CAMERA" label on a dark pill, stepped into the room so it never hides under HUD.
+      const lx = hx + Math.cos(camera.baseAngle) * 34;
+      const ly = hy + Math.sin(camera.baseAngle) * 34;
+      ctx.textBaseline = 'middle';
+      ctx.font = `700 12px ${FONT}`;
+      const labelW = ctx.measureText('CAMERA').width + 14;
+      ctx.fillStyle = camera.seeing ? 'rgba(90,20,28,0.9)' : 'rgba(11,14,20,0.85)';
+      ctx.fillRect(lx - labelW / 2, ly - 10, labelW, 20);
+      ctx.strokeStyle = camera.seeing ? '#ff4d5e' : '#6eb4ff';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(lx - labelW / 2 + 0.5, ly - 9.5, labelW - 1, 19);
+      text('CAMERA', lx, ly + 1, 12, camera.seeing ? '#ffb3ba' : '#cfe4f7', 'center', true);
+      if (camera.seeing) {
+        text('● REC', lx, ly + 20, 11, '#ff4d5e', 'center', true);
+      }
     }
   }
 
   function drawPlayer(state) {
     const p = state.player;
     const radius = p.crouch ? PLAYER.radius - 3 : PLAYER.radius;
-    // A soft pulsing ring under the thief so the eye finds them instantly in any frame.
-    ctx.strokeStyle = `rgba(232,178,58,${(0.35 + 0.2 * Math.sin(state.elapsed * 4)).toFixed(3)})`;
-    ctx.lineWidth = 2;
+    const a = p.angle;
+    const px = Math.cos(a + Math.PI / 2);
+    const py = Math.sin(a + Math.PI / 2);
+    // Selection ring: solid gold + dashed outer, so the thief is findable in any frame.
+    ctx.strokeStyle = `rgba(232,178,58,${(0.55 + 0.25 * Math.sin(state.elapsed * 4)).toFixed(3)})`;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, radius + 6, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, radius + 7, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.strokeStyle = 'rgba(232,178,58,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
     ctx.beginPath();
-    ctx.ellipse(p.x, p.y + 5, radius, radius * 0.7, 0, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, radius + 12, state.elapsed * 0.6, state.elapsed * 0.6 + Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + 6, radius, radius * 0.7, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Loot bag behind the thief, growing with carried weight.
-    if (p.weight > 0) {
-      const bagR = 6 + p.weight * 0.9;
-      ctx.fillStyle = PALETTE.playerBag;
-      ctx.beginPath();
-      ctx.arc(p.x - Math.cos(p.angle) * 10, p.y - Math.sin(p.angle) * 10, bagR, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    // Loot bag slung behind the thief, growing with carried weight, $-stamped.
+    const bagR = 8 + p.weight * 0.9;
+    const bagX = p.x - Math.cos(a) * (radius + 2);
+    const bagY = p.y - Math.sin(a) * (radius + 2);
+    ctx.fillStyle = PALETTE.playerBag;
+    ctx.beginPath();
+    ctx.arc(bagX, bagY, bagR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#5c451c';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#f2d98c';
+    ctx.beginPath();
+    ctx.arc(bagX - Math.cos(a) * bagR * 0.7, bagY - Math.sin(a) * bagR * 0.7, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.textBaseline = 'middle';
+    text('$', bagX, bagY + 1, 13, '#3a2c10', 'center', true);
+    // Shoulders in the dark outfit.
+    ctx.fillStyle = '#232d40';
+    ctx.beginPath();
+    ctx.arc(p.x + px * (radius - 3), p.y + py * (radius - 3), 7, 0, Math.PI * 2);
+    ctx.arc(p.x - px * (radius - 3), p.y - py * (radius - 3), 7, 0, Math.PI * 2);
+    ctx.fill();
+    // Body: near-black thief silhouette.
     ctx.fillStyle = PALETTE.player;
     ctx.beginPath();
     ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#0a0d13';
+    ctx.strokeStyle = '#e8b23a';
     ctx.lineWidth = 2;
     ctx.stroke();
-    // Gold mask stripe toward facing + hood point.
-    ctx.strokeStyle = PALETTE.playerTrim;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, radius - 3, p.angle - 0.55, p.angle + 0.55);
-    ctx.stroke();
+    // Facing wedge: a gold triangle pointing where the thief looks.
     ctx.fillStyle = PALETTE.playerTrim;
     ctx.beginPath();
-    ctx.arc(p.x + Math.cos(p.angle) * 6, p.y + Math.sin(p.angle) * 6, 3, 0, Math.PI * 2);
+    ctx.moveTo(p.x + Math.cos(a) * (radius + 8), p.y + Math.sin(a) * (radius + 8));
+    ctx.lineTo(p.x + Math.cos(a - 0.45) * radius * 0.55, p.y + Math.sin(a - 0.45) * radius * 0.55);
+    ctx.lineTo(p.x + Math.cos(a + 0.45) * radius * 0.55, p.y + Math.sin(a + 0.45) * radius * 0.55);
+    ctx.closePath();
+    ctx.fill();
+    // Head with gold mask band across the eyes + hood point at the back.
+    ctx.fillStyle = '#d9a877';
+    ctx.beginPath();
+    ctx.arc(p.x + Math.cos(a) * 3, p.y + Math.sin(a) * 3, 8.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = PALETTE.playerTrim;
+    ctx.beginPath();
+    ctx.arc(p.x + Math.cos(a) * 3, p.y + Math.sin(a) * 3, 8.5, a - 1.15, a + 1.15);
+    ctx.fill();
+    ctx.fillStyle = '#10141c';
+    ctx.beginPath();
+    ctx.arc(p.x + Math.cos(a) * 6 + px * 3.2, p.y + Math.sin(a) * 6 + py * 3.2, 1.7, 0, Math.PI * 2);
+    ctx.arc(p.x + Math.cos(a) * 6 - px * 3.2, p.y + Math.sin(a) * 6 - py * 3.2, 1.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = PALETTE.player;
+    ctx.beginPath();
+    ctx.moveTo(p.x - Math.cos(a) * (radius + 5), p.y - Math.sin(a) * (radius + 5));
+    ctx.lineTo(p.x - Math.cos(a) * 6 + px * 6, p.y - Math.sin(a) * 6 + py * 6);
+    ctx.lineTo(p.x - Math.cos(a) * 6 - px * 6, p.y - Math.sin(a) * 6 - py * 6);
+    ctx.closePath();
     ctx.fill();
     if (p.crouch) {
       ctx.strokeStyle = 'rgba(159,180,200,0.7)';
@@ -354,20 +687,40 @@ export function createRenderer(canvas) {
     let worst = 0;
     for (const guard of state.guards) worst = Math.max(worst, guard.meter);
     if (worst > 0.05) {
+      // Above the YOU tag so the two never overlap.
+      const eyeY = p.y - radius - 58;
       ctx.fillStyle = worst > 0.65 ? '#ff4d5e' : '#f2c94c';
       ctx.beginPath();
-      ctx.ellipse(p.x, p.y - radius - 16, 10, 6, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x, eyeY, 10, 6, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#10141c';
       ctx.beginPath();
-      ctx.arc(p.x, p.y - radius - 16, 3, 0, Math.PI * 2);
+      ctx.arc(p.x, eyeY, 3, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(p.x, p.y - radius - 16, 13, Math.PI, Math.PI + Math.PI * worst);
+      ctx.arc(p.x, eyeY, 13, Math.PI, Math.PI + Math.PI * worst);
       ctx.stroke();
     }
+    // "YOU" marker with a pointer triangle — the thief must be obvious in every frame.
+    const youY = p.y - radius - 34;
+    ctx.font = `700 13px ${FONT}`;
+    const youW = ctx.measureText('YOU').width + 16;
+    ctx.fillStyle = '#e8b23a';
+    ctx.fillRect(p.x - youW / 2, youY - 10, youW, 20);
+    ctx.strokeStyle = '#10141c';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(p.x - youW / 2 + 0.5, youY - 9.5, youW - 1, 19);
+    ctx.beginPath();
+    ctx.moveTo(p.x - 6, youY + 10);
+    ctx.lineTo(p.x + 6, youY + 10);
+    ctx.lineTo(p.x, youY + 18);
+    ctx.closePath();
+    ctx.fillStyle = '#e8b23a';
+    ctx.fill();
+    ctx.textBaseline = 'middle';
+    text('YOU', p.x, youY + 1, 13, '#10141c', 'center', true);
   }
 
   function drawEffects(state) {

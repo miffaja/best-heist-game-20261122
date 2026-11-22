@@ -8,7 +8,7 @@ export const FIELD = { width: 1280, height: 720 };
 export const STEP = 1 / 60;
 
 export const PLAYER = {
-  radius: 13,
+  radius: 16,
   walkSpeed: 168,          // px/s unencumbered
   sprintSpeed: 252,        // Shift: fast but loud and easy to spot
   crouchSpeed: 92,         // C / Ctrl: slow, small profile, hidden behind low cover
@@ -22,7 +22,7 @@ export const PLAYER = {
 };
 
 export const GUARD = {
-  radius: 13,
+  radius: 16,
   patrolSpeed: 74,
   investigateSpeed: 104,
   chaseSpeed: 196,         // a touch slower than a sprinting thief, faster than a laden one
@@ -30,7 +30,7 @@ export const GUARD = {
   viewHalfAngle: 0.62,     // radians either side of facing (~71 degree cone)
   detectFill: 1.35,        // meter fill per second at point blank, scaled by distance
   detectDecay: 0.45,
-  catchDistance: 27,
+  catchDistance: 30,
   lookSeconds: 1.6,        // pause-and-scan at each waypoint
   loseSightSeconds: 2.6,   // chase gives up after this long without a sighting
 };
@@ -86,16 +86,16 @@ export const PALETTE = {
   coverTop: '#67784e',
   desk: '#5a4632',
   deskTop: '#77593d',
-  player: '#1c2433',
+  player: '#141a26',
   playerTrim: '#e8b23a',   // the thief's gold mask stripe
   playerBag: '#8a6a2f',
-  guard: '#7a2e35',
-  guardTrim: '#d8d3c8',
-  guardCone: 'rgba(255,214,90,0.20)',
-  guardConeHot: 'rgba(255,90,70,0.34)',
-  camera: '#9fb4c8',
-  cameraCone: 'rgba(110,180,255,0.18)',
-  cameraConeHot: 'rgba(255,80,80,0.34)',
+  guard: '#2e4a78',        // navy security uniform
+  guardTrim: '#e8ecf2',    // white cap + badge
+  guardCone: 'rgba(255,214,90,0.22)',
+  guardConeHot: 'rgba(255,90,70,0.36)',
+  camera: '#cfe4f7',
+  cameraCone: 'rgba(140,205,255,0.20)',
+  cameraConeHot: 'rgba(255,80,80,0.38)',
   lootCash: '#58c472',
   lootGems: '#5fd4e8',
   lootGold: '#f2c94c',
